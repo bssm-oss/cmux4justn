@@ -79,7 +79,7 @@ cmux4justn doctor
 
 ## Safety
 
-v0.1.1 only creates missing symlinks or missing cmux workspaces. It does not delete, close, overwrite, rename, or retarget anything.
+v0.1.2 only creates missing symlinks or missing cmux workspaces. It does not delete, close, overwrite, rename, or retarget anything.
 
 ## Safe Smoke Test
 
