@@ -1,0 +1,29 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  bash:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bash syntax check
+        run: |
+          bash -n bin/cmux4justn
+          bash -n scripts/install.sh
+          bash -n scripts/launchd.sh
+          bash -n test/cmux4justn.test.sh
+
+      - name: Run test suite
+        run: bash test/cmux4justn.test.sh
+
+      - name: Shellcheck (if available)
+        run: |
+          if command -v shellcheck >/dev/null 2>&1; then
+            shellcheck bin/cmux4justn scripts/install.sh scripts/launchd.sh test/cmux4justn.test.sh
+          else
+            echo "shellcheck not installed; skipping"
+          fi
