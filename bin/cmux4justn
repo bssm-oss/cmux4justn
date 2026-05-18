@@ -1,0 +1,423 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+VERSION="0.1.1"
+ACTIVE_DIR="${CMUX4JUSTN_ACTIVE_DIR:-${ACTIVE_DIR:-/Users/justn/Workspaces/@active}}"
+CMUX_BIN="${CMUX4JUSTN_CMUX_BIN:-${CMUX_BIN:-}}"
+NAME_PREFIX="${CMUX4JUSTN_NAME_PREFIX:-@active/}"
+
+usage() {
+  cat <<'USAGE'
+cmux4justn v0.1 - tiny @active <-> cmux sync goblin
+
+Usage:
+  cmux4justn add [--dry-run|--apply] <path>...
+  cmux4justn sync [--dry-run|--apply] [--direction active-to-cmux|cmux-to-active|both]
+  cmux4justn list
+  cmux4justn doctor
+  cmux4justn version
+
+Defaults:
+  add  => --apply, then sync --direction both
+  sync => --dry-run --direction active-to-cmux
+
+Environment:
+  CMUX4JUSTN_ACTIVE_DIR   default: /Users/justn/Workspaces/@active
+  CMUX4JUSTN_CMUX_BIN     default: cmux from PATH or /Applications/cmux.app/Contents/Resources/bin/cmux
+  CMUX4JUSTN_NAME_PREFIX  default: @active/
+USAGE
+}
+
+fail() {
+  printf 'error: %s\n' "$*" >&2
+  exit 1
+}
+
+resolve_dir() {
+  local path="$1"
+  [ -d "$path" ] || return 1
+  (cd "$path" && pwd -P)
+}
+
+is_safe_name() {
+  local name="$1"
+  [ -n "$name" ] || return 1
+  [ "$name" != "." ] || return 1
+  [ "$name" != ".." ] || return 1
+  case "$name" in
+    */*|*..*) return 1 ;;
+  esac
+  return 0
+}
+
+find_cmux() {
+  if [ -n "$CMUX_BIN" ]; then
+    printf '%s\n' "$CMUX_BIN"
+  elif command -v cmux >/dev/null 2>&1; then
+    command -v cmux
+  elif [ -x "/Applications/cmux.app/Contents/Resources/bin/cmux" ]; then
+    printf '%s\n' "/Applications/cmux.app/Contents/Resources/bin/cmux"
+  else
+    printf '%s\n' "cmux"
+  fi
+}
+
+cmux_available() {
+  local cmux_bin="$1"
+  command -v "$cmux_bin" >/dev/null 2>&1 || [ -x "$cmux_bin" ]
+}
+
+has_direction() {
+  local direction="$1"
+  local requested="$2"
+  case "$direction:$requested" in
+    active-to-cmux:active-to-cmux|both:active-to-cmux|cmux-to-active:cmux-to-active|both:cmux-to-active)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+load_cmux_inventory() {
+  local cmux_bin="$1"
+  local output_file="$2"
+  : > "$output_file"
+
+  cmux_available "$cmux_bin" || return 1
+
+  local json
+  json="$($cmux_bin --json list-workspaces 2>/dev/null)" || return 1
+
+  if command -v python3 >/dev/null 2>&1; then
+    JSON_INPUT="$json" python3 - "$output_file" <<'PY'
+import json
+import os
+import sys
+
+output_path = sys.argv[1]
+data = json.loads(os.environ["JSON_INPUT"])
+with open(output_path, "w", encoding="utf-8") as handle:
+    for workspace in data.get("workspaces", []):
+        title = workspace.get("title")
+        cwd = workspace.get("current_directory")
+        if isinstance(title, str) and isinstance(cwd, str) and "\t" not in title and "\t" not in cwd:
+            handle.write(f"{title}\t{cwd}\n")
+PY
+    return 0
+  fi
+
+  if command -v jq >/dev/null 2>&1; then
+    printf '%s\n' "$json" | jq -r '.workspaces[] | select(.title and .current_directory) | [.title, .current_directory] | @tsv' > "$output_file"
+    return 0
+  fi
+
+  return 1
+}
+
+workspace_title_exists() {
+  local inventory_file="$1"
+  local title="$2"
+  awk -F '\t' -v title="$title" '$1 == title { found = 1 } END { exit found ? 0 : 1 }' "$inventory_file"
+}
+
+cmd_add() {
+  local mode="apply"
+  local paths=()
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --dry-run)
+        mode="dry-run"
+        shift
+        ;;
+      --apply)
+        mode="apply"
+        shift
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      --)
+        shift
+        while [ "$#" -gt 0 ]; do
+          paths+=("$1")
+          shift
+        done
+        ;;
+      --*)
+        fail "unknown add option: $1"
+        ;;
+      *)
+        paths+=("$1")
+        shift
+        ;;
+    esac
+  done
+
+  [ "${#paths[@]}" -gt 0 ] || fail "add requires at least one path"
+  [ -d "$ACTIVE_DIR" ] || fail "active directory not found: $ACTIVE_DIR"
+
+  local path target name link existing
+  for path in "${paths[@]}"; do
+    target="$(resolve_dir "$path")" || fail "not a directory: $path"
+    name="$(basename "$target")"
+    is_safe_name "$name" || fail "unsafe active name: $name"
+    link="$ACTIVE_DIR/$name"
+
+    if [ -L "$link" ]; then
+      existing="$(resolve_dir "$link")" || fail "existing active link is broken: $link"
+      if [ "$existing" = "$target" ]; then
+        printf 'skip existing-link\t%s\t%s\n' "$name" "$target"
+        continue
+      fi
+      fail "active link already points elsewhere: $link -> $existing"
+    fi
+
+    if [ -e "$link" ]; then
+      fail "active path already exists and is not a symlink: $link"
+    fi
+
+    if [ "$mode" = "dry-run" ]; then
+      printf 'would-link\t%s\t%s\n' "$link" "$target"
+    else
+      printf 'link\t%s\t%s\n' "$link" "$target"
+      ln -s "$target" "$link"
+    fi
+  done
+
+  cmd_sync --direction both "--$mode"
+}
+
+cmd_sync() {
+  local mode="dry-run"
+  local direction="active-to-cmux"
+  local cmux_bin
+  cmux_bin="$(find_cmux)"
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --dry-run)
+        mode="dry-run"
+        shift
+        ;;
+      --apply)
+        mode="apply"
+        shift
+        ;;
+      --direction)
+        [ "$#" -ge 2 ] || fail "--direction requires a value"
+        direction="$2"
+        shift 2
+        ;;
+      --active-dir)
+        [ "$#" -ge 2 ] || fail "--active-dir requires a path"
+        ACTIVE_DIR="$2"
+        shift 2
+        ;;
+      --cmux)
+        [ "$#" -ge 2 ] || fail "--cmux requires a path"
+        cmux_bin="$2"
+        shift 2
+        ;;
+      --name-prefix)
+        [ "$#" -ge 2 ] || fail "--name-prefix requires text"
+        NAME_PREFIX="$2"
+        shift 2
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        fail "unknown sync option: $1"
+        ;;
+    esac
+  done
+
+  case "$direction" in
+    active-to-cmux|cmux-to-active|both) ;;
+    *) fail "invalid direction: $direction" ;;
+  esac
+
+  [ -d "$ACTIVE_DIR" ] || fail "active directory not found: $ACTIVE_DIR"
+  if [ "$mode" = "apply" ] && has_direction "$direction" active-to-cmux && ! cmux_available "$cmux_bin"; then
+    fail "cmux executable not found: $cmux_bin"
+  fi
+
+  local inventory_file seen_targets
+  inventory_file="$(mktemp)"
+  seen_targets="$(mktemp)"
+  # shellcheck disable=SC2064
+  trap "rm -f '$inventory_file' '$seen_targets'" RETURN
+
+  local inventory_loaded=0
+  if load_cmux_inventory "$cmux_bin" "$inventory_file"; then
+    inventory_loaded=1
+  fi
+
+  if has_direction "$direction" cmux-to-active && [ "$inventory_loaded" -ne 1 ]; then
+    if [ "$mode" = "apply" ]; then
+      fail "cannot read cmux workspace inventory for reverse sync"
+    fi
+    printf 'skip reverse-unavailable\tno-workspace-cwd\n'
+  fi
+
+  local created_workspaces=0 planned_workspaces=0 created_links=0 planned_links=0 skipped=0
+
+  if has_direction "$direction" active-to-cmux; then
+    shopt -s nullglob
+    local link name workspace_name target
+    for link in "$ACTIVE_DIR"/*; do
+      if [ ! -L "$link" ]; then
+        skipped=$((skipped + 1))
+        continue
+      fi
+
+      name="$(basename "$link")"
+      workspace_name="${NAME_PREFIX}${name}"
+
+      if ! target="$(resolve_dir "$link")"; then
+        printf 'skip broken-or-non-dir\t%s\n' "$name"
+        skipped=$((skipped + 1))
+        continue
+      fi
+
+      if grep -Fx -- "$target" "$seen_targets" >/dev/null 2>&1; then
+        printf 'skip duplicate-target\t%s\t%s\n' "$workspace_name" "$target"
+        skipped=$((skipped + 1))
+        continue
+      fi
+      printf '%s\n' "$target" >> "$seen_targets"
+
+      if [ "$inventory_loaded" -eq 1 ] && workspace_title_exists "$inventory_file" "$workspace_name"; then
+        printf 'skip existing\t%s\t%s\n' "$workspace_name" "$target"
+        skipped=$((skipped + 1))
+        continue
+      fi
+
+      if [ "$mode" = "apply" ]; then
+        printf 'create-workspace\t%s\t%s\n' "$workspace_name" "$target"
+        "$cmux_bin" new-workspace --name "$workspace_name" --cwd "$target" --focus false >/dev/null
+        created_workspaces=$((created_workspaces + 1))
+      else
+        printf 'would-create-workspace\t%s\t%s\n' "$workspace_name" "$target"
+        planned_workspaces=$((planned_workspaces + 1))
+      fi
+    done
+    shopt -u nullglob
+  fi
+
+  if has_direction "$direction" cmux-to-active && [ "$inventory_loaded" -eq 1 ]; then
+    local title cwd active_name reverse_target link_path existing_target
+    while IFS=$'\t' read -r title cwd; do
+      case "$title" in
+        "$NAME_PREFIX"*) ;;
+        *) continue ;;
+      esac
+
+      active_name="${title#"$NAME_PREFIX"}"
+      if ! is_safe_name "$active_name"; then
+        printf 'skip unsafe-name\t%s\n' "$title"
+        skipped=$((skipped + 1))
+        continue
+      fi
+
+      if ! reverse_target="$(resolve_dir "$cwd")"; then
+        printf 'skip missing-cwd\t%s\t%s\n' "$title" "$cwd"
+        skipped=$((skipped + 1))
+        continue
+      fi
+
+      link_path="$ACTIVE_DIR/$active_name"
+      if [ -L "$link_path" ]; then
+        if existing_target="$(resolve_dir "$link_path")" && [ "$existing_target" = "$reverse_target" ]; then
+          printf 'skip existing-link\t%s\t%s\n' "$title" "$reverse_target"
+        else
+          printf 'skip conflicting-link\t%s\t%s\n' "$title" "$link_path"
+        fi
+        skipped=$((skipped + 1))
+        continue
+      fi
+
+      if [ -e "$link_path" ]; then
+        printf 'skip path-exists\t%s\t%s\n' "$title" "$link_path"
+        skipped=$((skipped + 1))
+        continue
+      fi
+
+      if [ "$mode" = "apply" ]; then
+        printf 'create-link\t%s\t%s\t%s\n' "$title" "$link_path" "$reverse_target"
+        ln -s "$reverse_target" "$link_path"
+        created_links=$((created_links + 1))
+      else
+        printf 'would-create-link\t%s\t%s\t%s\n' "$title" "$link_path" "$reverse_target"
+        planned_links=$((planned_links + 1))
+      fi
+    done < "$inventory_file"
+  fi
+
+  printf 'summary\tmode=%s\tdirection=%s\tplanned_workspaces=%s\tcreated_workspaces=%s\tplanned_links=%s\tcreated_links=%s\tskipped=%s\n' \
+    "$mode" "$direction" "$planned_workspaces" "$created_workspaces" "$planned_links" "$created_links" "$skipped"
+}
+
+cmd_list() {
+  [ -d "$ACTIVE_DIR" ] || fail "active directory not found: $ACTIVE_DIR"
+  shopt -s nullglob
+  local link target
+  for link in "$ACTIVE_DIR"/*; do
+    [ -L "$link" ] || continue
+    if target="$(resolve_dir "$link")"; then
+      printf '%s\t%s\n' "$(basename "$link")" "$target"
+    else
+      printf '%s\t%s\n' "$(basename "$link")" "BROKEN"
+    fi
+  done
+  shopt -u nullglob
+}
+
+cmd_doctor() {
+  local cmux_bin
+  cmux_bin="$(find_cmux)"
+  printf 'active_dir\t%s\t' "$ACTIVE_DIR"
+  [ -d "$ACTIVE_DIR" ] && printf 'ok\n' || printf 'missing\n'
+  printf 'cmux_bin\t%s\t' "$cmux_bin"
+  cmux_available "$cmux_bin" && printf 'ok\n' || printf 'missing\n'
+}
+
+main() {
+  local command="${1:-}"
+  case "$command" in
+    add)
+      shift
+      cmd_add "$@"
+      ;;
+    sync)
+      shift
+      cmd_sync "$@"
+      ;;
+    list)
+      shift
+      [ "$#" -eq 0 ] || fail "list takes no arguments"
+      cmd_list
+      ;;
+    doctor)
+      shift
+      [ "$#" -eq 0 ] || fail "doctor takes no arguments"
+      cmd_doctor
+      ;;
+    version|--version|-v)
+      printf '%s\n' "$VERSION"
+      ;;
+    -h|--help|help|"")
+      usage
+      ;;
+    *)
+      fail "unknown command: $command"
+      ;;
+  esac
+}
+
+main "$@"
