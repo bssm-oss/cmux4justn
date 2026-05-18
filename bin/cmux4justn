@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="0.1.2"
+VERSION="0.1.3"
 ACTIVE_DIR="${CMUX4JUSTN_ACTIVE_DIR:-${ACTIVE_DIR:-/Users/justn/Workspaces/@active}}"
 CMUX_BIN="${CMUX4JUSTN_CMUX_BIN:-${CMUX_BIN:-}}"
 NAME_PREFIX="${CMUX4JUSTN_NAME_PREFIX:-@active/}"
 
 usage() {
   cat <<'USAGE'
-cmux4justn v0.1.2 - tiny @active <-> cmux sync goblin
+cmux4justn v0.1.3 - tiny @active <-> cmux sync goblin
 
 Usage:
   cmux4justn add [--dry-run|--apply] <path>...
