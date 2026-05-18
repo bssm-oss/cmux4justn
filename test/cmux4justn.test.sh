@@ -142,6 +142,15 @@ install_output="$(CMUX4JUSTN_SHELL_RC="$INSTALL_RC" bash "$ROOT/scripts/install.
 assert_contains "$install_output" "would-update	$INSTALL_RC"
 [ ! -e "$INSTALL_RC" ] || fail "install dry-run should not create shell rc"
 
+{
+  printf '%s\n' "# >>> cmux4justn >>>"
+  printf "alias c4j='%s'\n" "$ROOT/bin/cmux4justn"
+  printf '%s\n' "# <<< cmux4justn <<<"
+} > "$INSTALL_RC"
+install_output="$(bash "$ROOT/scripts/install.sh" --shell-rc "$INSTALL_RC")"
+assert_contains "$install_output" "skip existing-alias	$INSTALL_RC"
+rm -f "$INSTALL_RC"
+
 install_output="$(bash "$ROOT/scripts/install.sh" --dry-run --shell-rc "$INSTALL_RC" --bin-dir "$INSTALL_BIN_DIR")"
 assert_contains "$install_output" "would-install-bin"
 assert_contains "$install_output" "would-update	$INSTALL_RC"

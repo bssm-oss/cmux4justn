@@ -118,6 +118,10 @@ if grep -F "$ALIAS_LINE" "$SHELL_RC" >/dev/null 2>&1; then
 fi
 
 if grep -F "$MARKER_START" "$SHELL_RC" >/dev/null 2>&1; then
+  if grep -F "alias c4j='${TARGET_CLI}'" "$SHELL_RC" >/dev/null 2>&1; then
+    printf 'skip existing-alias\t%s\n' "$SHELL_RC"
+    exit 0
+  fi
   printf 'error: cmux4justn marker exists but alias differs: %s\n' "$SHELL_RC" >&2
   exit 1
 fi
