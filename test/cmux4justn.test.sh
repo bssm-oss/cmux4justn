@@ -135,9 +135,80 @@ output="$($CLI doctor)"
 assert_contains "$output" "active_dir"
 assert_contains "$output" "cmux_bin"
 
-install_output="$(CMUX4JUSTN_SHELL_RC="$TMPDIR/zshrc" "$ROOT/scripts/install.sh" --dry-run)"
-assert_contains "$install_output" "would-update	$TMPDIR/zshrc"
-[ ! -e "$TMPDIR/zshrc" ] || fail "install dry-run should not create shell rc"
+INSTALL_RC="$TMPDIR/zshrc"
+INSTALL_BIN_DIR="$TMPDIR/bin"
+
+install_output="$(CMUX4JUSTN_SHELL_RC="$INSTALL_RC" bash "$ROOT/scripts/install.sh" --dry-run)"
+assert_contains "$install_output" "would-update	$INSTALL_RC"
+[ ! -e "$INSTALL_RC" ] || fail "install dry-run should not create shell rc"
+
+install_output="$(bash "$ROOT/scripts/install.sh" --dry-run --shell-rc "$INSTALL_RC" --bin-dir "$INSTALL_BIN_DIR")"
+assert_contains "$install_output" "would-install-bin"
+assert_contains "$install_output" "would-update	$INSTALL_RC"
+[ ! -e "$INSTALL_BIN_DIR/cmux4justn" ] || fail "install dry-run should not create bin copy"
+
+install_output="$(bash "$ROOT/scripts/install.sh" --dry-run --no-rc --bin-dir "$INSTALL_BIN_DIR")"
+assert_contains "$install_output" "would-skip-rc"
+assert_not_contains "$install_output" "would-update"
+
+install_output="$(bash "$ROOT/scripts/install.sh" --no-rc --bin-dir "$INSTALL_BIN_DIR")"
+assert_contains "$install_output" "installed-bin	$INSTALL_BIN_DIR/cmux4justn"
+assert_contains "$install_output" "skip rc-update"
+[ -x "$INSTALL_BIN_DIR/cmux4justn" ] || fail "install apply should create executable bin copy"
+
+install_output="$(bash "$ROOT/scripts/install.sh" --no-rc --bin-dir "$INSTALL_BIN_DIR")"
+assert_contains "$install_output" "skip existing-bin	$INSTALL_BIN_DIR/cmux4justn"
+
+printf 'different\n' > "$INSTALL_BIN_DIR/cmux4justn"
+if install_output="$(bash "$ROOT/scripts/install.sh" --no-rc --bin-dir "$INSTALL_BIN_DIR" 2>&1)"; then
+  fail "install should fail rather than overwrite different bin target"
+fi
+assert_contains "$install_output" "target executable already exists and differs"
+
+LAUNCH_TMP="$TMPDIR/launchd"
+LAUNCH_AGENTS_DIR="$LAUNCH_TMP/LaunchAgents"
+LAUNCHCTL_STUB="$LAUNCH_TMP/launchctl"
+ACTIVE_TEST_DIR="$TMPDIR/active test & dir"
+CMUX_TEST_BIN="$TMPDIR/cmux <test>"
+mkdir -p "$LAUNCH_TMP"
+cat > "$LAUNCHCTL_STUB" <<'LCTL'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >> "$CMUX_LAUNCHCTL_CALLS"
+LCTL
+chmod +x "$LAUNCHCTL_STUB"
+export CMUX_LAUNCHCTL_CALLS="$TMPDIR/launchctl.calls"
+
+launch_output="$(bash "$ROOT/scripts/launchd.sh" install --launch-agents-dir "$LAUNCH_AGENTS_DIR" --launchctl "$LAUNCHCTL_STUB")"
+assert_contains "$launch_output" "dry-run	no-write"
+[ ! -e "$LAUNCH_AGENTS_DIR/com.justn.cmux4justn.sync.plist" ] || fail "launchd install dry-run should not write plist"
+
+launch_print="$(bash "$ROOT/scripts/launchd.sh" print --launch-agents-dir "$LAUNCH_AGENTS_DIR" --active-dir "$ACTIVE_TEST_DIR" --cmux "$CMUX_TEST_BIN")"
+assert_contains "$launch_print" "--dry-run"
+assert_contains "$launch_print" "&amp;"
+assert_contains "$launch_print" "&lt;test&gt;"
+
+launch_output="$(bash "$ROOT/scripts/launchd.sh" install --apply --launch-agents-dir "$LAUNCH_AGENTS_DIR" --launchctl "$LAUNCHCTL_STUB" --active-dir "$ACTIVE_TEST_DIR")"
+assert_contains "$launch_output" "installed	$LAUNCH_AGENTS_DIR/com.justn.cmux4justn.sync.plist"
+assert_contains "$launch_output" "skip load"
+[ -e "$LAUNCH_AGENTS_DIR/com.justn.cmux4justn.sync.plist" ] || fail "launchd install apply should write plist"
+plist_content="$(cat "$LAUNCH_AGENTS_DIR/com.justn.cmux4justn.sync.plist")"
+assert_contains "$plist_content" "--dry-run"
+assert_contains "$plist_content" "$ROOT/bin/cmux4justn"
+
+launch_output="$(bash "$ROOT/scripts/launchd.sh" install --apply --load --launch-agents-dir "$LAUNCH_AGENTS_DIR" --launchctl "$LAUNCHCTL_STUB" --sync-apply)"
+assert_contains "$launch_output" "loaded"
+[ -e "$CMUX_LAUNCHCTL_CALLS" ] || fail "launchd install --load should call launchctl"
+assert_contains "$(cat "$CMUX_LAUNCHCTL_CALLS")" "load"
+
+launch_output="$(bash "$ROOT/scripts/launchd.sh" uninstall --launch-agents-dir "$LAUNCH_AGENTS_DIR" --launchctl "$LAUNCHCTL_STUB")"
+assert_contains "$launch_output" "dry-run	no-remove"
+[ -e "$LAUNCH_AGENTS_DIR/com.justn.cmux4justn.sync.plist" ] || fail "launchd uninstall dry-run should not remove plist"
+
+launch_output="$(bash "$ROOT/scripts/launchd.sh" uninstall --apply --load --launch-agents-dir "$LAUNCH_AGENTS_DIR" --launchctl "$LAUNCHCTL_STUB")"
+assert_contains "$launch_output" "removed	$LAUNCH_AGENTS_DIR/com.justn.cmux4justn.sync.plist"
+[ ! -e "$LAUNCH_AGENTS_DIR/com.justn.cmux4justn.sync.plist" ] || fail "launchd uninstall apply should remove plist"
+assert_contains "$(cat "$CMUX_LAUNCHCTL_CALLS")" "unload"
 
 [ "$($CLI version)" = "0.1.1" ] || fail "version mismatch"
 
