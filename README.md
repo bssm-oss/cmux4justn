@@ -10,7 +10,7 @@ Tiny personal CLI for syncing an `@active` symlink folder with cmux workspaces.
 scripts/install.sh
 ```
 
-This adds a `c4j` alias to `~/.zshrc`:
+This adds a `c4j` alias to `~/.zshrc`. Open a new shell or run `source ~/.zshrc` before using the alias:
 
 ```bash
 c4j doctor
@@ -22,6 +22,12 @@ Add a project to `@active` and sync cmux:
 
 ```bash
 cmux4justn add /path/to/project
+```
+
+Sync without adding a path:
+
+```bash
+cmux4justn add
 ```
 
 Preview sync:
@@ -57,4 +63,10 @@ cmux4justn doctor
 
 ## Safety
 
-v0.1 only creates missing symlinks or missing cmux workspaces. It does not delete, close, overwrite, rename, or retarget anything.
+v0.1.1 only creates missing symlinks or missing cmux workspaces. It does not delete, close, overwrite, rename, or retarget anything.
+
+## Known Limits
+
+- Automatic hourly/background sync is intentionally not enabled.
+- Reverse sync requires `cmux --json list-workspaces` plus either `python3` or `jq` for JSON parsing.
+- If cmux inventory cannot be read during `--apply`, the command fails instead of guessing.

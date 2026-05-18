@@ -8,7 +8,7 @@ NAME_PREFIX="${CMUX4JUSTN_NAME_PREFIX:-@active/}"
 
 usage() {
   cat <<'USAGE'
-cmux4justn v0.1 - tiny @active <-> cmux sync goblin
+cmux4justn v0.1.1 - tiny @active <-> cmux sync goblin
 
 Usage:
   cmux4justn add [--dry-run|--apply] <path>...
@@ -36,7 +36,7 @@ fail() {
 resolve_dir() {
   local path="$1"
   [ -d "$path" ] || return 1
-  (cd "$path" && pwd -P)
+  (cd -- "$path" && pwd -P)
 }
 
 is_safe_name() {
@@ -88,10 +88,13 @@ load_cmux_inventory() {
   cmux_available "$cmux_bin" || return 1
 
   local json
-  json="$($cmux_bin --json list-workspaces 2>/dev/null)" || return 1
+  json="$("$cmux_bin" --json list-workspaces 2>/dev/null)" || return 1
+
+  local parsed_file
+  parsed_file="$(mktemp)"
 
   if command -v python3 >/dev/null 2>&1; then
-    JSON_INPUT="$json" python3 - "$output_file" <<'PY'
+    if JSON_INPUT="$json" python3 - "$parsed_file" <<'PY'
 import json
 import os
 import sys
@@ -102,16 +105,32 @@ with open(output_path, "w", encoding="utf-8") as handle:
     for workspace in data.get("workspaces", []):
         title = workspace.get("title")
         cwd = workspace.get("current_directory")
-        if isinstance(title, str) and isinstance(cwd, str) and "\t" not in title and "\t" not in cwd:
+        if (
+            isinstance(title, str)
+            and isinstance(cwd, str)
+            and not any(ch in title for ch in "\t\r\n")
+            and not any(ch in cwd for ch in "\t\r\n")
+        ):
             handle.write(f"{title}\t{cwd}\n")
 PY
-    return 0
+    then
+      mv "$parsed_file" "$output_file"
+      return 0
+    fi
+    rm -f "$parsed_file"
+    return 1
   fi
 
   if command -v jq >/dev/null 2>&1; then
-    printf '%s\n' "$json" | jq -r '.workspaces[] | select(.title and .current_directory) | [.title, .current_directory] | @tsv' > "$output_file"
-    return 0
+    if printf '%s\n' "$json" | jq -r '.workspaces[] | select(.title and .current_directory) | select((.title | test("[\\t\\r\\n]") | not) and (.current_directory | test("[\\t\\r\\n]") | not)) | [.title, .current_directory] | @tsv' > "$parsed_file"; then
+      mv "$parsed_file" "$output_file"
+      return 0
+    fi
+    rm -f "$parsed_file"
+    return 1
   fi
+
+  rm -f "$parsed_file"
 
   return 1
 }
@@ -157,8 +176,12 @@ cmd_add() {
     esac
   done
 
-  [ "${#paths[@]}" -gt 0 ] || fail "add requires at least one path"
   [ -d "$ACTIVE_DIR" ] || fail "active directory not found: $ACTIVE_DIR"
+
+  if [ "${#paths[@]}" -eq 0 ]; then
+    cmd_sync --direction both "--$mode"
+    return
+  fi
 
   local path target name link existing
   for path in "${paths[@]}"; do
@@ -258,10 +281,11 @@ cmd_sync() {
     inventory_loaded=1
   fi
 
+  if [ "$mode" = "apply" ] && [ "$inventory_loaded" -ne 1 ]; then
+    fail "cannot read cmux workspace inventory for apply sync"
+  fi
+
   if has_direction "$direction" cmux-to-active && [ "$inventory_loaded" -ne 1 ]; then
-    if [ "$mode" = "apply" ]; then
-      fail "cannot read cmux workspace inventory for reverse sync"
-    fi
     printf 'skip reverse-unavailable\tno-workspace-cwd\n'
   fi
 
@@ -277,6 +301,11 @@ cmd_sync() {
       fi
 
       name="$(basename "$link")"
+      if ! is_safe_name "$name"; then
+        printf 'skip unsafe-name\t%s\n' "$name"
+        skipped=$((skipped + 1))
+        continue
+      fi
       workspace_name="${NAME_PREFIX}${name}"
 
       if ! target="$(resolve_dir "$link")"; then

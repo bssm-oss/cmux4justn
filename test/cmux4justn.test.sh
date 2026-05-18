@@ -99,6 +99,25 @@ resolved="$(cd "$ACTIVE/delta" && pwd -P)"
 expected_delta="$(cd "$PROJECTS/delta" && pwd -P)"
 [ "$resolved" = "$expected_delta" ] || fail "delta symlink points to wrong target: $resolved"
 
+output="$($CLI add --dry-run)"
+assert_contains "$output" "summary	mode=dry-run	direction=both"
+
+BAD_CMUX="$TMPDIR/bad-cmux"
+cat > "$BAD_CMUX" <<'BAD'
+#!/usr/bin/env bash
+set -euo pipefail
+if [ "${1:-}" = "--json" ] && [ "${2:-}" = "list-workspaces" ]; then
+  printf '{not-json\n'
+  exit 0
+fi
+exit 2
+BAD
+chmod +x "$BAD_CMUX"
+if output="$($CLI sync --apply --cmux "$BAD_CMUX" 2>&1)"; then
+  fail "sync apply should fail when cmux inventory is invalid"
+fi
+assert_contains "$output" "cannot read cmux workspace inventory for apply sync"
+
 output="$($CLI add --dry-run "$PROJECTS/gamma")"
 assert_contains "$output" "would-link"
 assert_contains "$output" "summary	mode=dry-run	direction=both"
@@ -115,6 +134,10 @@ assert_contains "$output" "gamma"
 output="$($CLI doctor)"
 assert_contains "$output" "active_dir"
 assert_contains "$output" "cmux_bin"
+
+install_output="$(CMUX4JUSTN_SHELL_RC="$TMPDIR/zshrc" "$ROOT/scripts/install.sh" --dry-run)"
+assert_contains "$install_output" "would-update	$TMPDIR/zshrc"
+[ ! -e "$TMPDIR/zshrc" ] || fail "install dry-run should not create shell rc"
 
 [ "$($CLI version)" = "0.1.1" ] || fail "version mismatch"
 

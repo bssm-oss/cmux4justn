@@ -4,7 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 CLI="$ROOT/bin/cmux4justn"
 SHELL_RC="${CMUX4JUSTN_SHELL_RC:-$HOME/.zshrc}"
-ALIAS_LINE="alias c4j='$CLI'"
+ALIAS_TARGET="$(printf '%q' "$CLI")"
+ALIAS_LINE="alias c4j=$ALIAS_TARGET"
 MARKER_START="# >>> cmux4justn >>>"
 MARKER_END="# <<< cmux4justn <<<"
 
@@ -35,13 +36,16 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-[ -x "$CLI" ] || chmod +x "$CLI"
-
 if [ "$DRY_RUN" -eq 1 ]; then
+  if [ ! -x "$CLI" ]; then
+    printf 'would-chmod\t%s\n' "$CLI"
+  fi
   printf 'would-update\t%s\n' "$SHELL_RC"
   printf '%s\n%s\n%s\n' "$MARKER_START" "$ALIAS_LINE" "$MARKER_END"
   exit 0
 fi
+
+[ -x "$CLI" ] || chmod +x "$CLI"
 
 mkdir -p "$(dirname "$SHELL_RC")"
 touch "$SHELL_RC"
