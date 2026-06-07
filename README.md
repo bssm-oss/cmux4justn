@@ -113,7 +113,7 @@ Prints the CLI version.
 
 ```bash
 # Install a specific release.
-C4J_REF=v0.4.0 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | bash
+C4J_REF=v0.4.1 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | bash
 
 # Download source somewhere else.
 C4J_INSTALL_DIR="$HOME/src/c4j" curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | bash

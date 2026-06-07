@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.1 - 2026-06-08
+
+### Fixed
+
+- Suppressed the `BASH_SOURCE[0]` warning when running the bootstrap installer through `curl | bash`.
+
 ## v0.4.0 - 2026-06-08
 
 ### Added

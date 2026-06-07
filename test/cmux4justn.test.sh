@@ -250,7 +250,18 @@ assert_contains "$output" "installed-bin	$BOOTSTRAP_HOME/.local/bin/c4j"
 assert_contains "$output" "active-dir"
 [ -x "$BOOTSTRAP_HOME/.local/bin/c4j" ] || fail "bootstrap install should create c4j executable"
 
-[ "$($CLI version)" = "0.4.0" ] || fail "version mismatch"
-[ "$("$ROOT/bin/cmux4justn" version)" = "0.4.0" ] || fail "legacy version mismatch"
+STDIN_BOOTSTRAP_HOME="$TMPDIR/stdin-bootstrap-home"
+STDIN_BOOTSTRAP_INSTALL_DIR="$TMPDIR/stdin-bootstrap-source"
+STDIN_BOOTSTRAP_ACTIVE="$TMPDIR/stdin-bootstrap-active"
+STDIN_BOOTSTRAP_ERR="$TMPDIR/stdin-bootstrap.err"
+mkdir -p "$STDIN_BOOTSTRAP_HOME" "$STDIN_BOOTSTRAP_ACTIVE"
+output="$(HOME="$STDIN_BOOTSTRAP_HOME" C4J_REPO_URL="file://$ROOT" C4J_REF="main" C4J_INSTALL_DIR="$STDIN_BOOTSTRAP_INSTALL_DIR" C4J_ACTIVE_DIR="$STDIN_BOOTSTRAP_ACTIVE" bash -s -- --no-rc < "$ROOT/install.sh" 2>"$STDIN_BOOTSTRAP_ERR")"
+! grep -q "BASH_SOURCE" "$STDIN_BOOTSTRAP_ERR" || fail "stdin bootstrap should not warn about BASH_SOURCE"
+assert_contains "$output" "download-source	file://$ROOT	$STDIN_BOOTSTRAP_INSTALL_DIR"
+assert_contains "$output" "installed-bin	$STDIN_BOOTSTRAP_HOME/.local/bin/c4j"
+[ -x "$STDIN_BOOTSTRAP_HOME/.local/bin/c4j" ] || fail "stdin bootstrap install should create c4j executable"
+
+[ "$($CLI version)" = "0.4.1" ] || fail "version mismatch"
+[ "$("$ROOT/bin/cmux4justn" version)" = "0.4.1" ] || fail "legacy version mismatch"
 
 printf 'PASS cmux4justn tests\n'

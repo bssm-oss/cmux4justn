@@ -10,7 +10,10 @@ fail() {
   exit 1
 }
 
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd -P || true)"
+script_dir=""
+if [ -n "${BASH_SOURCE[0]-}" ]; then
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd -P || true)"
+fi
 if [ -n "$script_dir" ] && [ -x "$script_dir/scripts/install.sh" ] && [ -x "$script_dir/bin/cmux4justn" ]; then
   exec "$script_dir/scripts/install.sh" "$@"
 fi

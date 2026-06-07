@@ -113,7 +113,7 @@ CLI 버전을 출력합니다.
 
 ```bash
 # 특정 릴리즈를 설치합니다.
-C4J_REF=v0.4.0 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | bash
+C4J_REF=v0.4.1 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | bash
 
 # source 다운로드 위치를 바꿉니다.
 C4J_INSTALL_DIR="$HOME/src/c4j" curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | bash
