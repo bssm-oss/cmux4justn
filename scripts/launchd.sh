@@ -2,11 +2,11 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-DEFAULT_CMUX4JUSTN="$ROOT/bin/cmux4justn"
-LABEL="com.justn.cmux4justn.sync"
+DEFAULT_C4J="$ROOT/bin/c4j"
+LABEL="com.justn.c4j.sync"
 LAUNCH_AGENTS_DIR="$HOME/Library/LaunchAgents"
 LAUNCHCTL_BIN="launchctl"
-CMUX4JUSTN_BIN="$DEFAULT_CMUX4JUSTN"
+C4J_BIN="$DEFAULT_C4J"
 ACTIVE_DIR=""
 CMUX_BIN=""
 SYNC_APPLY=0
@@ -24,9 +24,10 @@ Options:
   --apply                    required for any file writes/removals
   --load                     load after install, unload before uninstall
   --sync-apply               run scheduled sync with --apply (default: --dry-run)
-  --active-dir PATH          pass --active-dir PATH to cmux4justn sync
-  --cmux PATH                pass --cmux PATH to cmux4justn sync
-  --cmux4justn PATH          cmux4justn executable path for launchd job
+  --active-dir PATH          pass --active-dir PATH to c4j sync
+  --cmux PATH                pass --cmux PATH to c4j sync
+  --c4j PATH                 c4j executable path for launchd job
+  --cmux4justn PATH          compatibility alias for --c4j
   --launch-agents-dir PATH   override LaunchAgents directory
   --launchctl PATH           override launchctl binary path
   --label TEXT               override launchd label
@@ -64,9 +65,9 @@ build_plist() {
     arg_sync_mode="--apply"
   fi
 
-  local escaped_label escaped_cmux4justn escaped_active escaped_cmux
+  local escaped_label escaped_c4j escaped_active escaped_cmux
   escaped_label="$(xml_escape "$LABEL")"
-  escaped_cmux4justn="$(xml_escape "$CMUX4JUSTN_BIN")"
+  escaped_c4j="$(xml_escape "$C4J_BIN")"
 
   printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>'
   printf '%s\n' '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
@@ -76,7 +77,7 @@ build_plist() {
   printf '  <string>%s</string>\n' "$escaped_label"
   printf '%s\n' '  <key>ProgramArguments</key>'
   printf '%s\n' '  <array>'
-  printf '    <string>%s</string>\n' "$escaped_cmux4justn"
+  printf '    <string>%s</string>\n' "$escaped_c4j"
   printf '%s\n' '    <string>sync</string>'
   printf '%s\n' '    <string>--direction</string>'
   printf '%s\n' '    <string>both</string>'
@@ -143,9 +144,9 @@ while [ "$#" -gt 0 ]; do
       CMUX_BIN="$2"
       shift 2
       ;;
-    --cmux4justn)
-      [ "$#" -ge 2 ] || fail "--cmux4justn requires a path"
-      CMUX4JUSTN_BIN="$2"
+    --c4j|--cmux4justn)
+      [ "$#" -ge 2 ] || fail "$1 requires a path"
+      C4J_BIN="$2"
       shift 2
       ;;
     --launch-agents-dir)

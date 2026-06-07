@@ -1,8 +1,8 @@
-# cmux4justn
+# c4j
 
-Tiny personal CLI for syncing an `@active` symlink folder with cmux workspaces.
+Tiny personal CLI for syncing an active-project symlink folder with cmux workspaces.
 
-`@active` is a lightweight registry of projects you are actively touching. `cmux4justn` keeps that registry and cmux workspaces in sync without moving real project files.
+`~/.c4j/active` is a lightweight registry of projects you are actively touching. `c4j` keeps that registry and cmux workspaces in sync without moving real project files.
 
 ## Install
 
@@ -10,7 +10,7 @@ Tiny personal CLI for syncing an `@active` symlink folder with cmux workspaces.
 scripts/install.sh
 ```
 
-This adds a `c4j` alias to `~/.zshrc` by default. Open a new shell or run `source ~/.zshrc` before using the alias:
+This installs `c4j` into `~/.local/bin` by default. Make sure `~/.local/bin` is on `PATH`, then run:
 
 ```bash
 c4j doctor
@@ -19,14 +19,14 @@ c4j doctor
 Installer options:
 
 ```bash
-# target a different shell rc file
-scripts/install.sh --shell-rc /path/to/.zshrc
-
 # install an executable copy into a custom bin dir
 scripts/install.sh --bin-dir "$HOME/.local/bin"
 
-# install binary copy without editing shell rc
-scripts/install.sh --bin-dir "$HOME/.local/bin" --no-rc
+# use a different active-project registry
+scripts/install.sh --active-dir "$HOME/.c4j/active"
+
+# add an alias fallback to a shell rc file
+scripts/install.sh --rc --shell-rc "$HOME/.zshrc"
 
 # preview all changes safely
 scripts/install.sh --dry-run --shell-rc /tmp/cmux4justn.rc --bin-dir /tmp/cmux4justn-bin
@@ -34,65 +34,67 @@ scripts/install.sh --dry-run --shell-rc /tmp/cmux4justn.rc --bin-dir /tmp/cmux4j
 
 ## Usage
 
-Add a project to `@active` and sync cmux:
+Add a project to the active registry and sync cmux:
 
 ```bash
-cmux4justn add /path/to/project
+c4j add /path/to/project
 ```
 
 Sync without adding a path:
 
 ```bash
-cmux4justn add
+c4j add
 ```
 
 Preview sync:
 
 ```bash
-cmux4justn sync --direction both --dry-run
+c4j sync --direction both --dry-run
 ```
 
 Apply sync:
 
 ```bash
-cmux4justn sync --direction both --apply
+c4j sync --direction both --apply
 ```
 
 List active projects:
 
 ```bash
-cmux4justn list
+c4j list
 ```
 
 Check setup:
 
 ```bash
-cmux4justn doctor
+c4j doctor
 ```
 
 ## Defaults
 
-- Active dir: `/Users/justn/Workspaces/@active`
+- Active dir: `~/.c4j/active`
 - cmux workspace prefix: `@active/`
 - `sync` default: `--dry-run --direction active-to-cmux`
 - `add` default: `--apply`, then `sync --direction both`
 
 ## Safety
 
-v0.1.3 only creates missing symlinks or missing cmux workspaces. It does not delete, close, overwrite, rename, or retarget anything.
+v0.2.0 only creates missing symlinks or missing cmux workspaces. It does not delete, close, overwrite, rename, or retarget anything.
 
 ## Safe Smoke Test
 
-This checks a fresh clone without touching your real `@active`, cmux workspace list, or shell rc file:
+This checks a fresh clone without touching your real active registry, cmux workspace list, or shell rc file:
 
 ```bash
 tmp=$(mktemp -d)
-git clone https://github.com/bssm-oss/cmux4justn "$tmp/cmux4justn"
-cd "$tmp/cmux4justn"
-bin/cmux4justn version
+git clone https://github.com/bssm-oss/cmux4justn "$tmp/c4j"
+cd "$tmp/c4j"
+bin/c4j version
 scripts/install.sh --dry-run
 test/cmux4justn.test.sh
 ```
+
+`bin/cmux4justn` remains as a compatibility entrypoint.
 
 This is CI-safe and mirrors what the GitHub Actions workflow validates.
 

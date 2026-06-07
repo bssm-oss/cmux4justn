@@ -12,6 +12,7 @@ jobs:
 
       - name: Bash syntax check
         run: |
+          bash -n bin/c4j
           bash -n bin/cmux4justn
           bash -n scripts/install.sh
           bash -n scripts/launchd.sh
@@ -23,7 +24,7 @@ jobs:
       - name: Shellcheck (if available)
         run: |
           if command -v shellcheck >/dev/null 2>&1; then
-            shellcheck bin/cmux4justn scripts/install.sh scripts/launchd.sh test/cmux4justn.test.sh
+            shellcheck bin/c4j bin/cmux4justn scripts/install.sh scripts/launchd.sh test/cmux4justn.test.sh
           else
             echo "shellcheck not installed; skipping"
           fi
