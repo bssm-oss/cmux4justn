@@ -6,7 +6,14 @@ on:
 
 jobs:
   bash:
-    runs-on: ubuntu-latest
+    name: bash (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
     steps:
       - uses: actions/checkout@v4
 
