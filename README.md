@@ -1,5 +1,7 @@
 # c4j
 
+[한국어 README](README.ko.md)
+
 `c4j` is a small shell CLI that keeps an active-project symlink registry and cmux workspaces in sync.
 
 It is intentionally conservative: it creates missing symlinks and missing cmux workspaces, but it does not delete, close, overwrite, rename, or retarget existing work.
