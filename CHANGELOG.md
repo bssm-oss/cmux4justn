@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.8.0 - 2026-06-08
+
+### Changed
+
+- Changed `c4j list` to render a sorted table by default.
+- Added `c4j list --plain` and `--tsv` for script-friendly tab-separated output.
+
 ## v0.7.0 - 2026-06-08
 
 ### Changed

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="0.7.0"
+VERSION="0.8.0"
 DEFAULT_ACTIVE_DIR="${HOME:-/Users/justn}/.c4j/active"
 CONFIG_FILE="${C4J_CONFIG:-${CMUX4JUSTN_CONFIG:-${HOME:-/Users/justn}/.c4j/config}}"
 
@@ -21,14 +21,14 @@ NAME_PREFIX="${C4J_NAME_PREFIX:-${CMUX4JUSTN_NAME_PREFIX:-${CONFIG_NAME_PREFIX:-
 
 usage() {
   cat <<'USAGE'
-c4j v0.7.0 - tiny active-project <-> cmux sync
+c4j v0.8.0 - tiny active-project <-> cmux sync
 
 Usage:
   c4j add [--dry-run|--apply] <path>...
   c4j delete [--dry-run|--apply] [--keep-cmux] <name-or-path>...
   c4j import-now [--dry-run|--apply]
   c4j sync [--dry-run|--apply] [--direction active-to-cmux|cmux-to-active|both]
-  c4j list
+  c4j list [--plain]
   c4j config get
   c4j config set active-dir <path>
   c4j config set name-prefix <prefix>
@@ -733,18 +733,58 @@ cmd_sync() {
 }
 
 cmd_list() {
+  local format="table"
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --plain|--tsv)
+        format="plain"
+        shift
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        fail "unknown list option: $1"
+        ;;
+    esac
+  done
+
   [ -d "$ACTIVE_DIR" ] || fail "active directory not found: $ACTIVE_DIR"
+  local rows_file
+  rows_file="$(mktemp)"
+  # shellcheck disable=SC2064
+  trap "rm -f '$rows_file'" RETURN
+
   shopt -s nullglob
   local link target
   for link in "$ACTIVE_DIR"/*; do
     [ -L "$link" ] || continue
     if target="$(resolve_dir "$link")"; then
-      printf '%s\t%s\n' "$(basename "$link")" "$target"
+      printf '%s\t%s\n' "$(basename "$link")" "$target" >> "$rows_file"
     else
-      printf '%s\t%s\n' "$(basename "$link")" "BROKEN"
+      printf '%s\t%s\n' "$(basename "$link")" "BROKEN" >> "$rows_file"
     fi
   done
   shopt -u nullglob
+
+  sort -f "$rows_file" -o "$rows_file"
+
+  if [ "$format" = "plain" ]; then
+    cat "$rows_file"
+    return
+  fi
+
+  if [ ! -s "$rows_file" ]; then
+    printf 'No active projects.\n'
+    return
+  fi
+
+  local name_width
+  name_width="$(awk -F '\t' 'BEGIN { max = length("PROJECT") } { if (length($1) > max) max = length($1) } END { print max }' "$rows_file")"
+  printf "%-${name_width}s  %s\n" "PROJECT" "PATH"
+  printf "%-${name_width}s  %s\n" "$(printf '%*s' "$name_width" '' | tr ' ' '-')" "----"
+  awk -F '\t' -v width="$name_width" '{ printf "%-" width "s  %s\n", $1, $2 }' "$rows_file"
 }
 
 cmd_doctor() {
@@ -779,8 +819,7 @@ main() {
       ;;
     list)
       shift
-      [ "$#" -eq 0 ] || fail "list takes no arguments"
-      cmd_list
+      cmd_list "$@"
       ;;
     config)
       shift

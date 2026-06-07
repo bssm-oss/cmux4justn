@@ -5,6 +5,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 CLI="$ROOT/bin/c4j"
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT
+export HOME="$TMPDIR/home"
+unset C4J_CONFIG CMUX4JUSTN_CONFIG
 
 fail() {
   printf 'FAIL: %s\n' "$*" >&2
@@ -161,8 +163,13 @@ assert_contains "$output" "skip cmux-kept	@active/gamma"
 [ ! -e "$CALLS" ] || fail "delete --keep-cmux should not call cmux"
 
 output="$($CLI list)"
+assert_contains "$output" "PROJECT"
+assert_contains "$output" "PATH"
 assert_contains "$output" "alpha"
 assert_not_contains "$output" "gamma"
+output="$($CLI list --plain)"
+assert_contains "$output" $'alpha	'
+assert_not_contains "$output" "PROJECT"
 
 output="$($CLI doctor)"
 assert_contains "$output" "active_dir"
@@ -307,7 +314,7 @@ assert_contains "$output" "download-source	file://$ROOT	$STDIN_BOOTSTRAP_INSTALL
 assert_contains "$output" "installed-bin	$STDIN_BOOTSTRAP_HOME/.local/bin/c4j"
 [ -x "$STDIN_BOOTSTRAP_HOME/.local/bin/c4j" ] || fail "stdin bootstrap install should create c4j executable"
 
-[ "$($CLI version)" = "0.7.0" ] || fail "version mismatch"
-[ "$("$ROOT/bin/cmux4justn" version)" = "0.7.0" ] || fail "legacy version mismatch"
+[ "$($CLI version)" = "0.8.0" ] || fail "version mismatch"
+[ "$("$ROOT/bin/cmux4justn" version)" = "0.8.0" ] || fail "legacy version mismatch"
 
 printf 'PASS cmux4justn tests\n'

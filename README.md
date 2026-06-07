@@ -9,7 +9,7 @@ It is intentionally conservative: it creates missing symlinks and missing cmux w
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.7.0/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.8.0/install.sh | bash
 ```
 
 The installer:
@@ -110,9 +110,11 @@ Default:
 c4j sync --dry-run --direction active-to-cmux
 ```
 
-### `c4j list`
+### `c4j list [--plain]`
 
-Prints active symlinks and their resolved targets.
+Prints active symlinks and their resolved targets as a table.
+
+Use `--plain` or `--tsv` for script-friendly tab-separated output.
 
 ### `c4j config get`
 
@@ -171,13 +173,13 @@ Prints the CLI version.
 
 ```bash
 # Install a specific release.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.7.0/install.sh | C4J_REF=v0.7.0 bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.8.0/install.sh | C4J_REF=v0.8.0 bash
 
 # Install from main instead of the release pinned by the bootstrap script.
 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash
 
 # Download source somewhere else.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.7.0/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.8.0/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
 
 # Preview all installer actions.
 scripts/install.sh --dry-run
