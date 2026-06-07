@@ -4,12 +4,12 @@
 
 `c4j`는 지금 작업 중인 프로젝트 목록과 cmux 워크스페이스를 맞춰 주는 작은 shell CLI입니다.
 
-프로젝트 파일을 옮기지 않고, active registry에 symlink만 만들고, 필요한 cmux 워크스페이스만 생성합니다. 기본 동작은 보수적입니다. 기존 symlink나 워크스페이스를 삭제하거나, 닫거나, 덮어쓰거나, 다른 경로로 바꾸지 않습니다.
+프로젝트 파일을 옮기지 않고, active registry에 symlink만 만들고, 필요한 cmux 워크스페이스만 생성합니다. 기본 동작은 보수적입니다. `c4j delete`를 명시적으로 실행할 때만 active symlink를 제거하거나 cmux 워크스페이스를 닫습니다.
 
 ## 설치
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.4.3/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.5.0/install.sh | bash
 ```
 
 설치 스크립트는 기본적으로 다음 작업을 합니다.
@@ -31,6 +31,9 @@ c4j doctor
 ```bash
 # 프로젝트를 active registry에 추가하고 cmux와 동기화합니다.
 c4j add ~/Workspaces/repos/justn-hyeok/cmux4justn
+
+# 프로젝트를 active registry에서 제거하고 cmux 워크스페이스도 닫습니다.
+c4j delete cmux4justn
 
 # active 프로젝트 목록을 봅니다.
 c4j list
@@ -56,6 +59,24 @@ c4j sync --direction both --apply
 ```bash
 c4j add
 ```
+
+### `c4j delete [--dry-run|--apply] [--keep-cmux] <name-or-path>...`
+
+하나 이상의 active symlink를 제거하고 대응되는 cmux 워크스페이스를 닫습니다.
+
+`delete`는 기본값이 `--apply`입니다. 실제 프로젝트 디렉터리는 절대 삭제하지 않습니다.
+
+```bash
+c4j delete cmux4justn
+c4j delete .
+c4j delete --dry-run cmux4justn
+c4j delete --keep-cmux cmux4justn
+```
+
+alias:
+
+- `remove`
+- `rm`
 
 ### `c4j sync [--dry-run|--apply] [--direction active-to-cmux|cmux-to-active|both]`
 
@@ -113,13 +134,13 @@ CLI 버전을 출력합니다.
 
 ```bash
 # 특정 릴리즈를 설치합니다.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.4.3/install.sh | C4J_REF=v0.4.3 bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.5.0/install.sh | C4J_REF=v0.5.0 bash
 
 # bootstrap script에 고정된 릴리즈 대신 main에서 설치합니다.
 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash
 
 # source 다운로드 위치를 바꿉니다.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.4.3/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.5.0/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
 
 # 설치 작업을 미리 확인합니다.
 scripts/install.sh --dry-run
@@ -212,8 +233,8 @@ scripts/launchd.sh uninstall --apply --load
 - `/` 또는 `..`가 포함된 unsafe active name은 거부합니다.
 - broken symlink, duplicate target, 충돌하는 기존 path는 건너뜁니다.
 - `--apply` sync로 워크스페이스를 만들기 전에 cmux inventory를 읽을 수 있어야 합니다.
-- active symlink를 삭제하지 않습니다.
-- cmux 워크스페이스를 닫지 않습니다.
+- 명시적으로 `c4j delete`를 실행할 때만 active symlink를 제거하거나 cmux 워크스페이스를 닫습니다.
+- 실제 프로젝트 디렉터리는 절대 삭제하지 않습니다.
 - 설치 대상 실행 파일이 기존 파일과 다르면 덮어쓰지 않습니다.
 - config 값은 단순한 `key=value` 줄이며 shell source하지 않습니다.
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="0.4.3"
+VERSION="0.5.0"
 DEFAULT_ACTIVE_DIR="${HOME:-/Users/justn}/.c4j/active"
 CONFIG_FILE="${C4J_CONFIG:-${CMUX4JUSTN_CONFIG:-${HOME:-/Users/justn}/.c4j/config}}"
 
@@ -21,10 +21,11 @@ NAME_PREFIX="${C4J_NAME_PREFIX:-${CMUX4JUSTN_NAME_PREFIX:-${CONFIG_NAME_PREFIX:-
 
 usage() {
   cat <<'USAGE'
-c4j v0.4.3 - tiny active-project <-> cmux sync
+c4j v0.5.0 - tiny active-project <-> cmux sync
 
 Usage:
   c4j add [--dry-run|--apply] <path>...
+  c4j delete [--dry-run|--apply] [--keep-cmux] <name-or-path>...
   c4j sync [--dry-run|--apply] [--direction active-to-cmux|cmux-to-active|both]
   c4j list
   c4j config get
@@ -36,6 +37,7 @@ Usage:
 
 Defaults:
   add  => --apply, then sync --direction both
+  delete => --apply, remove active symlink and close matching cmux workspace
   sync => --dry-run --direction active-to-cmux
 
 Environment:
@@ -126,13 +128,16 @@ with open(output_path, "w", encoding="utf-8") as handle:
     for workspace in data.get("workspaces", []):
         title = workspace.get("title")
         cwd = workspace.get("current_directory")
+        ref = workspace.get("ref")
         if (
             isinstance(title, str)
             and isinstance(cwd, str)
+            and isinstance(ref, str)
             and not any(ch in title for ch in "\t\r\n")
             and not any(ch in cwd for ch in "\t\r\n")
+            and not any(ch in ref for ch in "\t\r\n")
         ):
-            handle.write(f"{title}\t{cwd}\n")
+            handle.write(f"{title}\t{cwd}\t{ref}\n")
 PY
     then
       mv "$parsed_file" "$output_file"
@@ -143,7 +148,7 @@ PY
   fi
 
   if command -v jq >/dev/null 2>&1; then
-    if printf '%s\n' "$json" | jq -r '.workspaces[] | select(.title and .current_directory) | select((.title | test("[\\t\\r\\n]") | not) and (.current_directory | test("[\\t\\r\\n]") | not)) | [.title, .current_directory] | @tsv' > "$parsed_file"; then
+    if printf '%s\n' "$json" | jq -r '.workspaces[] | select(.title and .current_directory and .ref) | select((.title | test("[\\t\\r\\n]") | not) and (.current_directory | test("[\\t\\r\\n]") | not) and (.ref | test("[\\t\\r\\n]") | not)) | [.title, .current_directory, .ref] | @tsv' > "$parsed_file"; then
       mv "$parsed_file" "$output_file"
       return 0
     fi
@@ -160,6 +165,12 @@ workspace_title_exists() {
   local inventory_file="$1"
   local title="$2"
   awk -F '\t' -v title="$title" '$1 == title { found = 1 } END { exit found ? 0 : 1 }' "$inventory_file"
+}
+
+workspace_ref_for_title() {
+  local inventory_file="$1"
+  local title="$2"
+  awk -F '\t' -v title="$title" '$1 == title { print $3; found = 1; exit } END { exit found ? 0 : 1 }' "$inventory_file"
 }
 
 config_key_for_field() {
@@ -335,6 +346,162 @@ cmd_add() {
   cmd_sync --direction both "--$mode"
 }
 
+active_name_from_delete_arg() {
+  local arg="$1"
+  local target
+
+  if target="$(resolve_dir "$arg" 2>/dev/null)"; then
+    basename "$target"
+    return 0
+  fi
+
+  case "$arg" in
+    "$NAME_PREFIX"*)
+      printf '%s\n' "${arg#"$NAME_PREFIX"}"
+      ;;
+    */*)
+      fail "delete target is not an existing directory or active name: $arg"
+      ;;
+    *)
+      printf '%s\n' "$arg"
+      ;;
+  esac
+}
+
+cmd_delete() {
+  local mode="apply"
+  local close_cmux=1
+  local cmux_bin
+  local targets=()
+  cmux_bin="$(find_cmux)"
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --dry-run)
+        mode="dry-run"
+        shift
+        ;;
+      --apply)
+        mode="apply"
+        shift
+        ;;
+      --keep-cmux)
+        close_cmux=0
+        shift
+        ;;
+      --active-dir)
+        [ "$#" -ge 2 ] || fail "--active-dir requires a path"
+        ACTIVE_DIR="$2"
+        shift 2
+        ;;
+      --cmux)
+        [ "$#" -ge 2 ] || fail "--cmux requires a path"
+        cmux_bin="$2"
+        shift 2
+        ;;
+      --name-prefix)
+        [ "$#" -ge 2 ] || fail "--name-prefix requires text"
+        NAME_PREFIX="$2"
+        shift 2
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      --)
+        shift
+        while [ "$#" -gt 0 ]; do
+          targets+=("$1")
+          shift
+        done
+        ;;
+      --*)
+        fail "unknown delete option: $1"
+        ;;
+      *)
+        targets+=("$1")
+        shift
+        ;;
+    esac
+  done
+
+  [ "${#targets[@]}" -gt 0 ] || fail "delete requires at least one name or path"
+  [ -d "$ACTIVE_DIR" ] || fail "active directory not found: $ACTIVE_DIR"
+  if [ "$mode" = "apply" ] && [ "$close_cmux" -eq 1 ] && ! cmux_available "$cmux_bin"; then
+    fail "cmux executable not found: $cmux_bin"
+  fi
+
+  local inventory_file
+  inventory_file="$(mktemp)"
+  # shellcheck disable=SC2064
+  trap "rm -f '$inventory_file'" RETURN
+
+  local inventory_loaded=0
+  if [ "$close_cmux" -eq 1 ] && load_cmux_inventory "$cmux_bin" "$inventory_file"; then
+    inventory_loaded=1
+  fi
+
+  if [ "$mode" = "apply" ] && [ "$close_cmux" -eq 1 ] && [ "$inventory_loaded" -ne 1 ]; then
+    fail "cannot read cmux workspace inventory for apply delete"
+  fi
+
+  local removed_links=0 planned_links=0 closed_workspaces=0 planned_workspaces=0 skipped=0
+  local target name link workspace_name workspace_ref
+
+  for target in "${targets[@]}"; do
+    name="$(active_name_from_delete_arg "$target")"
+    is_safe_name "$name" || fail "unsafe active name: $name"
+    link="$ACTIVE_DIR/$name"
+    workspace_name="${NAME_PREFIX}${name}"
+
+    if [ -L "$link" ]; then
+      if [ "$mode" = "apply" ]; then
+        rm "$link"
+        printf 'unlink\t%s\t%s\n' "$name" "$link"
+        removed_links=$((removed_links + 1))
+      else
+        printf 'would-unlink\t%s\t%s\n' "$name" "$link"
+        planned_links=$((planned_links + 1))
+      fi
+    elif [ -e "$link" ]; then
+      printf 'skip not-symlink\t%s\t%s\n' "$name" "$link"
+      skipped=$((skipped + 1))
+    else
+      printf 'skip missing-link\t%s\t%s\n' "$name" "$link"
+      skipped=$((skipped + 1))
+    fi
+
+    if [ "$close_cmux" -eq 0 ]; then
+      printf 'skip cmux-kept\t%s\n' "$workspace_name"
+      skipped=$((skipped + 1))
+      continue
+    fi
+
+    if [ "$inventory_loaded" -ne 1 ]; then
+      printf 'skip cmux-unavailable\t%s\n' "$workspace_name"
+      skipped=$((skipped + 1))
+      continue
+    fi
+
+    if workspace_ref="$(workspace_ref_for_title "$inventory_file" "$workspace_name")"; then
+      if [ "$mode" = "apply" ]; then
+        "$cmux_bin" close-workspace --workspace "$workspace_ref" >/dev/null
+        printf 'close-workspace\t%s\t%s\n' "$workspace_name" "$workspace_ref"
+        closed_workspaces=$((closed_workspaces + 1))
+      else
+        printf 'would-close-workspace\t%s\t%s\n' "$workspace_name" "$workspace_ref"
+        planned_workspaces=$((planned_workspaces + 1))
+      fi
+    else
+      printf 'skip missing-workspace\t%s\n' "$workspace_name"
+      skipped=$((skipped + 1))
+    fi
+  done
+
+  printf 'summary\tmode=%s\tplanned_links=%s\tremoved_links=%s\tplanned_workspaces=%s\tclosed_workspaces=%s\tskipped=%s\n' \
+    "$mode" "$planned_links" "$removed_links" "$planned_workspaces" "$closed_workspaces" "$skipped"
+}
+
 cmd_sync() {
   local mode="dry-run"
   local direction="active-to-cmux"
@@ -461,8 +628,8 @@ cmd_sync() {
   fi
 
   if has_direction "$direction" cmux-to-active && [ "$inventory_loaded" -eq 1 ]; then
-    local title cwd active_name reverse_target link_path existing_target
-    while IFS=$'\t' read -r title cwd; do
+    local title cwd _workspace_ref active_name reverse_target link_path existing_target
+    while IFS=$'\t' read -r title cwd _workspace_ref; do
       case "$title" in
         "$NAME_PREFIX"*) ;;
         *) continue ;;
@@ -545,6 +712,10 @@ main() {
     add)
       shift
       cmd_add "$@"
+      ;;
+    delete|remove|rm)
+      shift
+      cmd_delete "$@"
       ;;
     sync)
       shift

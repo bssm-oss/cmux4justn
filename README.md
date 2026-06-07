@@ -4,12 +4,12 @@
 
 `c4j` is a small shell CLI that keeps an active-project symlink registry and cmux workspaces in sync.
 
-It is intentionally conservative: it creates missing symlinks and missing cmux workspaces, but it does not delete, close, overwrite, rename, or retarget existing work.
+It is intentionally conservative: it creates missing symlinks and missing cmux workspaces, and only removes active symlinks or closes cmux workspaces when `c4j delete` is explicit.
 
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.4.3/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.5.0/install.sh | bash
 ```
 
 The installer:
@@ -31,6 +31,9 @@ c4j doctor
 ```bash
 # Add a project and sync cmux.
 c4j add ~/Workspaces/repos/justn-hyeok/cmux4justn
+
+# Remove a project from the active registry and close its cmux workspace.
+c4j delete cmux4justn
 
 # List active projects.
 c4j list
@@ -56,6 +59,24 @@ With no path, `add` only runs the two-way sync:
 ```bash
 c4j add
 ```
+
+### `c4j delete [--dry-run|--apply] [--keep-cmux] <name-or-path>...`
+
+Removes one or more active symlinks and closes the matching cmux workspace.
+
+`delete` defaults to `--apply`. It never deletes the real project directory.
+
+```bash
+c4j delete cmux4justn
+c4j delete .
+c4j delete --dry-run cmux4justn
+c4j delete --keep-cmux cmux4justn
+```
+
+Aliases:
+
+- `remove`
+- `rm`
 
 ### `c4j sync [--dry-run|--apply] [--direction active-to-cmux|cmux-to-active|both]`
 
@@ -113,13 +134,13 @@ Prints the CLI version.
 
 ```bash
 # Install a specific release.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.4.3/install.sh | C4J_REF=v0.4.3 bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.5.0/install.sh | C4J_REF=v0.5.0 bash
 
 # Install from main instead of the release pinned by the bootstrap script.
 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash
 
 # Download source somewhere else.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.4.3/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.5.0/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
 
 # Preview all installer actions.
 scripts/install.sh --dry-run
@@ -212,8 +233,8 @@ Test-safe overrides:
 - It refuses unsafe active names such as names containing `/` or `..`.
 - It skips broken symlinks, duplicate targets, and conflicting existing paths.
 - It requires cmux inventory to be readable before `--apply` sync creates workspaces.
-- It does not remove active symlinks.
-- It does not close cmux workspaces.
+- It only removes active symlinks or closes cmux workspaces when `c4j delete` is explicit.
+- It never deletes real project directories.
 - It does not overwrite existing executable installs that differ from the bundled CLI.
 - Config values are plain `key=value` lines and are not shell-sourced.
 

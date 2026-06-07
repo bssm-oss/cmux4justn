@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.5.0 - 2026-06-08
+
+### Added
+
+- Added `c4j delete` for removing active symlinks and closing matching cmux workspaces.
+- Added `c4j remove` and `c4j rm` aliases.
+- Added `--keep-cmux` for registry-only deletes.
+
 ## v0.4.3 - 2026-06-08
 
 ### Fixed

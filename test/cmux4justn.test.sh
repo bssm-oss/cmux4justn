@@ -45,10 +45,11 @@ if [ "${1:-}" = "--json" ] && [ "${2:-}" = "list-workspaces" ]; then
   cat <<JSON
 {
   "workspaces": [
-    {"title": "@active/alpha", "current_directory": "$CMUX_TEST_PROJECTS/alpha"},
-    {"title": "@active/delta", "current_directory": "$CMUX_TEST_PROJECTS/delta"},
-    {"title": "@active/bad/name", "current_directory": "$CMUX_TEST_PROJECTS/unsafe"},
-    {"title": "other", "current_directory": "$CMUX_TEST_PROJECTS/gamma"}
+    {"title": "@active/alpha", "current_directory": "$CMUX_TEST_PROJECTS/alpha", "ref": "workspace:1"},
+    {"title": "@active/delta", "current_directory": "$CMUX_TEST_PROJECTS/delta", "ref": "workspace:2"},
+    {"title": "@active/gamma", "current_directory": "$CMUX_TEST_PROJECTS/gamma", "ref": "workspace:3"},
+    {"title": "@active/bad/name", "current_directory": "$CMUX_TEST_PROJECTS/unsafe", "ref": "workspace:4"},
+    {"title": "other", "current_directory": "$CMUX_TEST_PROJECTS/gamma", "ref": "workspace:5"}
   ]
 }
 JSON
@@ -56,7 +57,7 @@ JSON
 fi
 
 case "${1:-}" in
-  new-workspace)
+  new-workspace|close-workspace)
     printf '%s\n' "$*" >> "$CMUX_FAKE_CALLS"
     ;;
   *)
@@ -98,6 +99,7 @@ assert_contains "$output" "create-link	@active/delta"
 resolved="$(cd "$ACTIVE/delta" && pwd -P)"
 expected_delta="$(cd "$PROJECTS/delta" && pwd -P)"
 [ "$resolved" = "$expected_delta" ] || fail "delta symlink points to wrong target: $resolved"
+rm -f "$ACTIVE/gamma"
 
 output="$($CLI add --dry-run)"
 assert_contains "$output" "summary	mode=dry-run	direction=both"
@@ -127,9 +129,29 @@ output="$($CLI add --apply "$PROJECTS/gamma")"
 assert_contains "$output" "link	$ACTIVE/gamma"
 [ -L "$ACTIVE/gamma" ] || fail "add apply should create symlink"
 
+output="$($CLI delete --dry-run gamma)"
+assert_contains "$output" "would-unlink	gamma	$ACTIVE/gamma"
+assert_contains "$output" "would-close-workspace	@active/gamma	workspace:3"
+[ -L "$ACTIVE/gamma" ] || fail "delete dry-run should not remove symlink"
+
+output="$($CLI delete --apply gamma)"
+assert_contains "$output" "unlink	gamma	$ACTIVE/gamma"
+assert_contains "$output" "close-workspace	@active/gamma	workspace:3"
+[ ! -e "$ACTIVE/gamma" ] || fail "delete apply should remove symlink"
+assert_contains "$(cat "$CALLS")" "close-workspace --workspace workspace:3"
+rm -f "$CALLS"
+
+output="$($CLI add --apply "$PROJECTS/gamma")"
+assert_contains "$output" "link	$ACTIVE/gamma"
+rm -f "$CALLS"
+output="$($CLI rm --apply --keep-cmux "$PROJECTS/gamma")"
+assert_contains "$output" "unlink	gamma	$ACTIVE/gamma"
+assert_contains "$output" "skip cmux-kept	@active/gamma"
+[ ! -e "$CALLS" ] || fail "delete --keep-cmux should not call cmux"
+
 output="$($CLI list)"
 assert_contains "$output" "alpha"
-assert_contains "$output" "gamma"
+assert_not_contains "$output" "gamma"
 
 output="$($CLI doctor)"
 assert_contains "$output" "active_dir"
@@ -261,7 +283,7 @@ assert_contains "$output" "download-source	file://$ROOT	$STDIN_BOOTSTRAP_INSTALL
 assert_contains "$output" "installed-bin	$STDIN_BOOTSTRAP_HOME/.local/bin/c4j"
 [ -x "$STDIN_BOOTSTRAP_HOME/.local/bin/c4j" ] || fail "stdin bootstrap install should create c4j executable"
 
-[ "$($CLI version)" = "0.4.3" ] || fail "version mismatch"
-[ "$("$ROOT/bin/cmux4justn" version)" = "0.4.3" ] || fail "legacy version mismatch"
+[ "$($CLI version)" = "0.5.0" ] || fail "version mismatch"
+[ "$("$ROOT/bin/cmux4justn" version)" = "0.5.0" ] || fail "legacy version mismatch"
 
 printf 'PASS cmux4justn tests\n'
