@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.3 - 2026-06-08
+
+### Fixed
+
+- Made bootstrap source downloads quieter by avoiding git's annotated-tag and detached-HEAD installer noise.
+
 ## v0.4.2 - 2026-06-08
 
 ### Fixed

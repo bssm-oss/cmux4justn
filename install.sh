@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO_URL="${C4J_REPO_URL:-https://github.com/bssm-oss/cmux4justn.git}"
-BOOTSTRAP_REF="v0.4.2"
+BOOTSTRAP_REF="v0.4.3"
 REF="${C4J_REF:-$BOOTSTRAP_REF}"
 INSTALL_DIR="${C4J_INSTALL_DIR:-$HOME/.local/share/c4j}"
 
@@ -27,12 +27,14 @@ fi
 
 if [ -d "$INSTALL_DIR/.git" ]; then
   printf 'update-source\t%s\t%s\n' "$INSTALL_DIR" "$REF"
-  git -C "$INSTALL_DIR" fetch --depth 1 origin "$REF"
-  git -C "$INSTALL_DIR" checkout -f FETCH_HEAD
+  git -C "$INSTALL_DIR" fetch -q --depth 1 origin "$REF"
+  git -C "$INSTALL_DIR" -c advice.detachedHead=false checkout -q -f FETCH_HEAD
 else
   printf 'download-source\t%s\t%s\n' "$REPO_URL" "$INSTALL_DIR"
   mkdir -p "$(dirname "$INSTALL_DIR")"
-  git clone --depth 1 --branch "$REF" "$REPO_URL" "$INSTALL_DIR"
+  git clone -q --depth 1 --no-checkout "$REPO_URL" "$INSTALL_DIR"
+  git -C "$INSTALL_DIR" fetch -q --depth 1 origin "$REF"
+  git -C "$INSTALL_DIR" -c advice.detachedHead=false checkout -q FETCH_HEAD
 fi
 
 exec "$INSTALL_DIR/scripts/install.sh" "$@"

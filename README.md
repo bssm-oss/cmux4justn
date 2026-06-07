@@ -9,7 +9,7 @@ It is intentionally conservative: it creates missing symlinks and missing cmux w
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.4.2/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.4.3/install.sh | bash
 ```
 
 The installer:
@@ -113,13 +113,13 @@ Prints the CLI version.
 
 ```bash
 # Install a specific release.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.4.2/install.sh | C4J_REF=v0.4.2 bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.4.3/install.sh | C4J_REF=v0.4.3 bash
 
 # Install from main instead of the release pinned by the bootstrap script.
 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash
 
 # Download source somewhere else.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.4.2/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.4.3/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
 
 # Preview all installer actions.
 scripts/install.sh --dry-run

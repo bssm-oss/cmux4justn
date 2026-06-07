@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="0.4.2"
+VERSION="0.4.3"
 DEFAULT_ACTIVE_DIR="${HOME:-/Users/justn}/.c4j/active"
 CONFIG_FILE="${C4J_CONFIG:-${CMUX4JUSTN_CONFIG:-${HOME:-/Users/justn}/.c4j/config}}"
 
@@ -21,7 +21,7 @@ NAME_PREFIX="${C4J_NAME_PREFIX:-${CMUX4JUSTN_NAME_PREFIX:-${CONFIG_NAME_PREFIX:-
 
 usage() {
   cat <<'USAGE'
-c4j v0.4.2 - tiny active-project <-> cmux sync
+c4j v0.4.3 - tiny active-project <-> cmux sync
 
 Usage:
   c4j add [--dry-run|--apply] <path>...
