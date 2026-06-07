@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.4.2 - 2026-06-08
+
+### Fixed
+
+- Pinned the bootstrap install command to a release tag so downloads are not affected by moving `main` or raw URL propagation.
+- Corrected installer option examples so pipeline environment variables apply to `bash`, not `curl`.
+
 ## v0.4.1 - 2026-06-08
 
 ### Fixed

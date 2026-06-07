@@ -9,7 +9,7 @@
 ## 설치
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.4.2/install.sh | bash
 ```
 
 설치 스크립트는 기본적으로 다음 작업을 합니다.
@@ -113,10 +113,13 @@ CLI 버전을 출력합니다.
 
 ```bash
 # 특정 릴리즈를 설치합니다.
-C4J_REF=v0.4.1 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.4.2/install.sh | C4J_REF=v0.4.2 bash
+
+# bootstrap script에 고정된 릴리즈 대신 main에서 설치합니다.
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash
 
 # source 다운로드 위치를 바꿉니다.
-C4J_INSTALL_DIR="$HOME/src/c4j" curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.4.2/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
 
 # 설치 작업을 미리 확인합니다.
 scripts/install.sh --dry-run
