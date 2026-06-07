@@ -224,7 +224,21 @@ assert_contains "$launch_output" "removed	$LAUNCH_AGENTS_DIR/com.justn.c4j.sync.
 [ ! -e "$LAUNCH_AGENTS_DIR/com.justn.c4j.sync.plist" ] || fail "launchd uninstall apply should remove plist"
 assert_contains "$(cat "$CMUX_LAUNCHCTL_CALLS")" "unload"
 
-[ "$($CLI version)" = "0.2.1" ] || fail "version mismatch"
-[ "$("$ROOT/bin/cmux4justn" version)" = "0.2.1" ] || fail "legacy version mismatch"
+CONFIG_HOME="$TMPDIR/config-home"
+CONFIG_ACTIVE="$TMPDIR/config-active"
+mkdir -p "$CONFIG_HOME" "$CONFIG_ACTIVE"
+CONFIG_ACTIVE_RESOLVED="$(cd "$CONFIG_ACTIVE" && pwd -P)"
+output="$(env -u C4J_ACTIVE_DIR -u CMUX4JUSTN_ACTIVE_DIR HOME="$CONFIG_HOME" C4J_CMUX_BIN="$FAKE_CMUX" "$CLI" config set active-dir "$CONFIG_ACTIVE")"
+assert_contains "$output" "set	active_dir	$CONFIG_ACTIVE_RESOLVED"
+output="$(env -u C4J_ACTIVE_DIR -u CMUX4JUSTN_ACTIVE_DIR HOME="$CONFIG_HOME" C4J_CMUX_BIN="$FAKE_CMUX" "$CLI" config get)"
+assert_contains "$output" "active_dir	$CONFIG_ACTIVE_RESOLVED"
+output="$(env -u C4J_ACTIVE_DIR -u CMUX4JUSTN_ACTIVE_DIR HOME="$CONFIG_HOME" C4J_CMUX_BIN="$FAKE_CMUX" "$CLI" doctor)"
+assert_contains "$output" "config_file	$CONFIG_HOME/.c4j/config	ok"
+assert_contains "$output" "active_dir	$CONFIG_ACTIVE_RESOLVED	ok"
+output="$(env -u C4J_ACTIVE_DIR -u CMUX4JUSTN_ACTIVE_DIR HOME="$CONFIG_HOME" "$CLI" config unset active-dir)"
+assert_contains "$output" "unset	active_dir"
+
+[ "$($CLI version)" = "0.3.0" ] || fail "version mismatch"
+[ "$("$ROOT/bin/cmux4justn" version)" = "0.3.0" ] || fail "legacy version mismatch"
 
 printf 'PASS cmux4justn tests\n'

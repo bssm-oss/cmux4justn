@@ -18,6 +18,7 @@ scripts/install.sh
 
 - `~/.local/bin/c4j`에 실행 파일 설치
 - `~/.c4j/active` active registry 생성
+- active registry 경로를 `~/.c4j/config`에 저장
 - `--rc` 옵션이 없으면 shell rc 파일은 수정하지 않음
 
 `~/.local/bin`이 `PATH`에 없으면 설치 스크립트가 shell rc에 추가할 `export` 줄을 출력합니다. 그 뒤 설정 상태를 확인합니다.
@@ -34,6 +35,9 @@ c4j add ~/Workspaces/repos/justn-hyeok/cmux4justn
 
 # active 프로젝트 목록을 봅니다.
 c4j list
+
+# 기본 active registry를 바꿉니다.
+c4j config set active-dir ~/Workspaces/now
 
 # 양방향 동기화를 미리 확인합니다.
 c4j sync --direction both --dry-run
@@ -72,6 +76,32 @@ c4j sync --dry-run --direction active-to-cmux
 
 active symlink와 실제 target 경로를 출력합니다.
 
+### `c4j config get`
+
+config 파일 경로와 실제 적용되는 런타임 설정을 출력합니다.
+
+### `c4j config set active-dir <path>`
+
+기본 active registry를 config 파일에 저장합니다. 경로는 이미 존재해야 합니다.
+
+같은 설정을 가리키는 alias:
+
+- `workspace-dir`
+- `workspace-file`
+
+```bash
+c4j config set active-dir ~/Workspaces/now
+c4j config get
+```
+
+### `c4j config unset active-dir`
+
+저장된 active registry 설정을 제거하고 기본값 또는 환경 변수 설정으로 돌아갑니다.
+
+### `c4j config path`
+
+config 파일 경로를 출력합니다.
+
 ### `c4j doctor`
 
 active registry가 있는지, cmux 실행 파일을 찾을 수 있는지 확인합니다.
@@ -92,12 +122,16 @@ scripts/install.sh --bin-dir "$HOME/.local/bin"
 # 다른 active registry를 사용합니다.
 scripts/install.sh --active-dir "$HOME/.c4j/active"
 
+# 다른 config 파일을 사용합니다.
+scripts/install.sh --config "$HOME/.c4j/config"
+
 # shell rc 파일에 alias fallback을 추가합니다.
 scripts/install.sh --rc --shell-rc "$HOME/.zshrc"
 
 # 특정 설치 단계를 건너뜁니다.
 scripts/install.sh --no-bin
 scripts/install.sh --no-active-dir
+scripts/install.sh --no-config
 scripts/install.sh --no-rc
 ```
 
@@ -105,11 +139,13 @@ scripts/install.sh --no-rc
 
 - `C4J_BIN_DIR`: `c4j` 기본 설치 디렉터리
 - `C4J_ACTIVE_DIR`: 기본 active registry 경로
+- `C4J_CONFIG`: config 파일 경로
 - `C4J_SHELL_RC`: `--rc`가 사용할 shell rc 파일
 
 ## 런타임 기본값
 
 - Active registry: `~/.c4j/active`
+- Config file: `~/.c4j/config`
 - cmux 워크스페이스 prefix: `@active/`
 - `add`: `--apply` 후 `sync --direction both`
 - `sync`: `--dry-run --direction active-to-cmux`
@@ -119,6 +155,7 @@ scripts/install.sh --no-rc
 - `C4J_ACTIVE_DIR`
 - `C4J_CMUX_BIN`
 - `C4J_NAME_PREFIX`
+- `C4J_CONFIG`
 
 호환성 alias도 유지됩니다.
 
@@ -170,6 +207,7 @@ scripts/launchd.sh uninstall --apply --load
 - active symlink를 삭제하지 않습니다.
 - cmux 워크스페이스를 닫지 않습니다.
 - 설치 대상 실행 파일이 기존 파일과 다르면 덮어쓰지 않습니다.
+- config 값은 단순한 `key=value` 줄이며 shell source하지 않습니다.
 
 ## 개발
 

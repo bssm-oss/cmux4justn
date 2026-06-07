@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.3.0 - 2026-06-08
+
+### Added
+
+- Added `c4j config get`, `set`, `unset`, and `path` commands.
+- Added persistent config support via `~/.c4j/config`.
+- Added `C4J_CONFIG` to override the config file path.
+- Added `workspace-dir` and `workspace-file` aliases for the `active-dir` setting.
+
+### Changed
+
+- Installer now writes the selected active registry to the config file.
+- `doctor` now reports config file status.
+- README and Korean README now document persistent workspace/active registry configuration.
+
+### Verification
+
+- `bash -n bin/c4j bin/cmux4justn scripts/install.sh scripts/launchd.sh test/cmux4justn.test.sh`
+- `bash test/cmux4justn.test.sh`
+- `shellcheck bin/c4j bin/cmux4justn scripts/install.sh scripts/launchd.sh test/cmux4justn.test.sh`
+- Fresh config set/get/unset test with temporary `HOME`
+
 ## v0.2.1 - 2026-06-08
 
 ### Changed

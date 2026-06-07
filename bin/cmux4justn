@@ -1,20 +1,36 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="0.2.1"
+VERSION="0.3.0"
 DEFAULT_ACTIVE_DIR="${HOME:-/Users/justn}/.c4j/active"
-ACTIVE_DIR="${C4J_ACTIVE_DIR:-${CMUX4JUSTN_ACTIVE_DIR:-${ACTIVE_DIR:-$DEFAULT_ACTIVE_DIR}}}"
-CMUX_BIN="${C4J_CMUX_BIN:-${CMUX4JUSTN_CMUX_BIN:-${CMUX_BIN:-}}}"
-NAME_PREFIX="${C4J_NAME_PREFIX:-${CMUX4JUSTN_NAME_PREFIX:-@active/}}"
+CONFIG_FILE="${C4J_CONFIG:-${CMUX4JUSTN_CONFIG:-${HOME:-/Users/justn}/.c4j/config}}"
+
+config_get_value() {
+  local key="$1"
+  [ -f "$CONFIG_FILE" ] || return 1
+  awk -F '=' -v key="$key" '$1 == key { print substr($0, length(key) + 2); found = 1 } END { exit found ? 0 : 1 }' "$CONFIG_FILE"
+}
+
+CONFIG_ACTIVE_DIR="$(config_get_value active_dir 2>/dev/null || true)"
+CONFIG_CMUX_BIN="$(config_get_value cmux_bin 2>/dev/null || true)"
+CONFIG_NAME_PREFIX="$(config_get_value name_prefix 2>/dev/null || true)"
+
+ACTIVE_DIR="${C4J_ACTIVE_DIR:-${CMUX4JUSTN_ACTIVE_DIR:-${ACTIVE_DIR:-${CONFIG_ACTIVE_DIR:-$DEFAULT_ACTIVE_DIR}}}}"
+CMUX_BIN="${C4J_CMUX_BIN:-${CMUX4JUSTN_CMUX_BIN:-${CMUX_BIN:-${CONFIG_CMUX_BIN:-}}}}"
+NAME_PREFIX="${C4J_NAME_PREFIX:-${CMUX4JUSTN_NAME_PREFIX:-${CONFIG_NAME_PREFIX:-@active/}}}"
 
 usage() {
   cat <<'USAGE'
-c4j v0.2.1 - tiny active-project <-> cmux sync
+c4j v0.3.0 - tiny active-project <-> cmux sync
 
 Usage:
   c4j add [--dry-run|--apply] <path>...
   c4j sync [--dry-run|--apply] [--direction active-to-cmux|cmux-to-active|both]
   c4j list
+  c4j config get
+  c4j config set active-dir <path>
+  c4j config unset active-dir
+  c4j config path
   c4j doctor
   c4j version
 
@@ -26,6 +42,7 @@ Environment:
   C4J_ACTIVE_DIR   default: ~/.c4j/active
   C4J_CMUX_BIN     default: cmux from PATH or /Applications/cmux.app/Contents/Resources/bin/cmux
   C4J_NAME_PREFIX  default: @active/
+  C4J_CONFIG       default: ~/.c4j/config
 
 Compatibility:
   bin/cmux4justn and CMUX4JUSTN_* environment variables still work.
@@ -143,6 +160,106 @@ workspace_title_exists() {
   local inventory_file="$1"
   local title="$2"
   awk -F '\t' -v title="$title" '$1 == title { found = 1 } END { exit found ? 0 : 1 }' "$inventory_file"
+}
+
+config_key_for_field() {
+  case "$1" in
+    active-dir|workspace-dir|workspace-file)
+      printf 'active_dir\n'
+      ;;
+    cmux-bin)
+      printf 'cmux_bin\n'
+      ;;
+    name-prefix)
+      printf 'name_prefix\n'
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+config_value_for_field() {
+  local field="$1"
+  local value="$2"
+  case "$field" in
+    active-dir|workspace-dir|workspace-file)
+      resolve_dir "$value" || return 1
+      ;;
+    cmux-bin)
+      printf '%s\n' "$value"
+      ;;
+    name-prefix)
+      printf '%s\n' "$value"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+config_write_value() {
+  local key="$1"
+  local value="$2"
+  local dir tmp_file
+  dir="$(dirname "$CONFIG_FILE")"
+  mkdir -p "$dir"
+  tmp_file="$(mktemp)"
+  if [ -f "$CONFIG_FILE" ]; then
+    awk -F '=' -v key="$key" '$1 != key { print }' "$CONFIG_FILE" > "$tmp_file"
+  fi
+  printf '%s=%s\n' "$key" "$value" >> "$tmp_file"
+  mv "$tmp_file" "$CONFIG_FILE"
+}
+
+config_unset_value() {
+  local key="$1"
+  local tmp_file
+  [ -f "$CONFIG_FILE" ] || return 0
+  tmp_file="$(mktemp)"
+  awk -F '=' -v key="$key" '$1 != key { print }' "$CONFIG_FILE" > "$tmp_file"
+  mv "$tmp_file" "$CONFIG_FILE"
+}
+
+cmd_config() {
+  local subcommand="${1:-}"
+  case "$subcommand" in
+    get|"")
+      [ "$#" -le 1 ] || fail "config get takes no arguments"
+      printf 'config_file\t%s\n' "$CONFIG_FILE"
+      printf 'active_dir\t%s\n' "$ACTIVE_DIR"
+      printf 'cmux_bin\t%s\n' "$(find_cmux)"
+      printf 'name_prefix\t%s\n' "$NAME_PREFIX"
+      ;;
+    set)
+      [ "$#" -eq 3 ] || fail "config set requires a field and value"
+      local field="$2"
+      local value="$3"
+      local key resolved
+      key="$(config_key_for_field "$field")" || fail "unknown config field: $field"
+      resolved="$(config_value_for_field "$field" "$value")" || fail "invalid value for $field: $value"
+      config_write_value "$key" "$resolved"
+      printf 'set\t%s\t%s\n' "$key" "$resolved"
+      ;;
+    unset)
+      [ "$#" -eq 2 ] || fail "config unset requires a field"
+      local field="$2"
+      local key
+      key="$(config_key_for_field "$field")" || fail "unknown config field: $field"
+      config_unset_value "$key"
+      printf 'unset\t%s\n' "$key"
+      ;;
+    path)
+      [ "$#" -eq 1 ] || fail "config path takes no arguments"
+      printf '%s\n' "$CONFIG_FILE"
+      ;;
+    -h|--help|help)
+      usage
+      ;;
+    *)
+      fail "unknown config command: $subcommand"
+      ;;
+  esac
 }
 
 cmd_add() {
@@ -414,6 +531,8 @@ cmd_list() {
 cmd_doctor() {
   local cmux_bin
   cmux_bin="$(find_cmux)"
+  printf 'config_file\t%s\t' "$CONFIG_FILE"
+  [ -f "$CONFIG_FILE" ] && printf 'ok\n' || printf 'missing\n'
   printf 'active_dir\t%s\t' "$ACTIVE_DIR"
   [ -d "$ACTIVE_DIR" ] && printf 'ok\n' || printf 'missing\n'
   printf 'cmux_bin\t%s\t' "$cmux_bin"
@@ -435,6 +554,10 @@ main() {
       shift
       [ "$#" -eq 0 ] || fail "list takes no arguments"
       cmd_list
+      ;;
+    config)
+      shift
+      cmd_config "$@"
       ;;
     doctor)
       shift
