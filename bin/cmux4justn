@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="0.5.0"
+VERSION="0.6.0"
 DEFAULT_ACTIVE_DIR="${HOME:-/Users/justn}/.c4j/active"
 CONFIG_FILE="${C4J_CONFIG:-${CMUX4JUSTN_CONFIG:-${HOME:-/Users/justn}/.c4j/config}}"
 
@@ -21,11 +21,12 @@ NAME_PREFIX="${C4J_NAME_PREFIX:-${CMUX4JUSTN_NAME_PREFIX:-${CONFIG_NAME_PREFIX:-
 
 usage() {
   cat <<'USAGE'
-c4j v0.5.0 - tiny active-project <-> cmux sync
+c4j v0.6.0 - tiny active-project <-> cmux sync
 
 Usage:
   c4j add [--dry-run|--apply] <path>...
   c4j delete [--dry-run|--apply] [--keep-cmux] <name-or-path>...
+  c4j import-now [--dry-run|--apply]
   c4j sync [--dry-run|--apply] [--direction active-to-cmux|cmux-to-active|both]
   c4j list
   c4j config get
@@ -38,6 +39,7 @@ Usage:
 Defaults:
   add  => --apply, then sync --direction both
   delete => --apply, remove active symlink and close matching cmux workspace
+  import-now => --dry-run, import legacy now-i-work-in-* cmux workspaces
   sync => --dry-run --direction active-to-cmux
 
 Environment:
@@ -502,6 +504,50 @@ cmd_delete() {
     "$mode" "$planned_links" "$removed_links" "$planned_workspaces" "$closed_workspaces" "$skipped"
 }
 
+cmd_import_now() {
+  local mode="dry-run"
+  local cmux_bin
+  local legacy_prefix="now-i-work-in-"
+  cmux_bin="$(find_cmux)"
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --dry-run)
+        mode="dry-run"
+        shift
+        ;;
+      --apply)
+        mode="apply"
+        shift
+        ;;
+      --active-dir)
+        [ "$#" -ge 2 ] || fail "--active-dir requires a path"
+        ACTIVE_DIR="$2"
+        shift 2
+        ;;
+      --cmux)
+        [ "$#" -ge 2 ] || fail "--cmux requires a path"
+        cmux_bin="$2"
+        shift 2
+        ;;
+      --legacy-prefix)
+        [ "$#" -ge 2 ] || fail "--legacy-prefix requires text"
+        legacy_prefix="$2"
+        shift 2
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        fail "unknown import-now option: $1"
+        ;;
+    esac
+  done
+
+  cmd_sync --direction cmux-to-active "--$mode" --name-prefix "$legacy_prefix" --cmux "$cmux_bin" --active-dir "$ACTIVE_DIR"
+}
+
 cmd_sync() {
   local mode="dry-run"
   local direction="active-to-cmux"
@@ -716,6 +762,10 @@ main() {
     delete|remove|rm)
       shift
       cmd_delete "$@"
+      ;;
+    import-now)
+      shift
+      cmd_import_now "$@"
       ;;
     sync)
       shift

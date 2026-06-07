@@ -9,7 +9,7 @@ It is intentionally conservative: it creates missing symlinks and missing cmux w
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.5.0/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.6.0/install.sh | bash
 ```
 
 The installer:
@@ -34,6 +34,9 @@ c4j add ~/Workspaces/repos/justn-hyeok/cmux4justn
 
 # Remove a project from the active registry and close its cmux workspace.
 c4j delete cmux4justn
+
+# Import legacy now-i-work-in-* cmux workspaces.
+c4j import-now --apply
 
 # List active projects.
 c4j list
@@ -77,6 +80,18 @@ Aliases:
 
 - `remove`
 - `rm`
+
+### `c4j import-now [--dry-run|--apply]`
+
+Imports legacy cmux workspaces named `now-i-work-in-*` into the active registry.
+
+`import-now` defaults to `--dry-run`. It creates active symlinks only; it does not rename or close existing cmux workspaces.
+
+```bash
+c4j import-now
+c4j import-now --apply
+c4j import-now --legacy-prefix now-i-work-in-
+```
 
 ### `c4j sync [--dry-run|--apply] [--direction active-to-cmux|cmux-to-active|both]`
 
@@ -134,13 +149,13 @@ Prints the CLI version.
 
 ```bash
 # Install a specific release.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.5.0/install.sh | C4J_REF=v0.5.0 bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.6.0/install.sh | C4J_REF=v0.6.0 bash
 
 # Install from main instead of the release pinned by the bootstrap script.
 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash
 
 # Download source somewhere else.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.5.0/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.6.0/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
 
 # Preview all installer actions.
 scripts/install.sh --dry-run

@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.6.0 - 2026-06-08
+
+### Added
+
+- Added `c4j import-now` to import legacy `now-i-work-in-*` cmux workspaces into the active registry.
+- Added `--legacy-prefix` for importing non-default legacy workspace prefixes.
+
 ## v0.5.0 - 2026-06-08
 
 ### Added

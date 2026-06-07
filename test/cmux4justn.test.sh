@@ -29,7 +29,7 @@ assert_not_contains() {
 
 ACTIVE="$TMPDIR/@active"
 PROJECTS="$TMPDIR/projects"
-mkdir -p "$ACTIVE" "$PROJECTS/alpha" "$PROJECTS/beta" "$PROJECTS/gamma" "$PROJECTS/delta" "$PROJECTS/unsafe"
+mkdir -p "$ACTIVE" "$PROJECTS/alpha" "$PROJECTS/beta" "$PROJECTS/gamma" "$PROJECTS/delta" "$PROJECTS/legacy" "$PROJECTS/unsafe"
 ln -s "$PROJECTS/alpha" "$ACTIVE/alpha"
 ln -s "$PROJECTS/beta" "$ACTIVE/beta"
 ln -s "$PROJECTS/beta" "$ACTIVE/beta-copy"
@@ -49,7 +49,9 @@ if [ "${1:-}" = "--json" ] && [ "${2:-}" = "list-workspaces" ]; then
     {"title": "@active/delta", "current_directory": "$CMUX_TEST_PROJECTS/delta", "ref": "workspace:2"},
     {"title": "@active/gamma", "current_directory": "$CMUX_TEST_PROJECTS/gamma", "ref": "workspace:3"},
     {"title": "@active/bad/name", "current_directory": "$CMUX_TEST_PROJECTS/unsafe", "ref": "workspace:4"},
-    {"title": "other", "current_directory": "$CMUX_TEST_PROJECTS/gamma", "ref": "workspace:5"}
+    {"title": "other", "current_directory": "$CMUX_TEST_PROJECTS/gamma", "ref": "workspace:5"},
+    {"title": "now-i-work-in-legacy", "current_directory": "$CMUX_TEST_PROJECTS/legacy", "ref": "workspace:6"},
+    {"title": "now-i-work-in-bad/name", "current_directory": "$CMUX_TEST_PROJECTS/unsafe", "ref": "workspace:7"}
   ]
 }
 JSON
@@ -100,6 +102,15 @@ resolved="$(cd "$ACTIVE/delta" && pwd -P)"
 expected_delta="$(cd "$PROJECTS/delta" && pwd -P)"
 [ "$resolved" = "$expected_delta" ] || fail "delta symlink points to wrong target: $resolved"
 rm -f "$ACTIVE/gamma"
+
+output="$($CLI import-now --dry-run)"
+assert_contains "$output" "would-create-link	now-i-work-in-legacy	$ACTIVE/legacy"
+assert_contains "$output" "skip unsafe-name	now-i-work-in-bad/name"
+[ ! -e "$ACTIVE/legacy" ] || fail "import-now dry-run should not create symlink"
+
+output="$($CLI import-now --apply)"
+assert_contains "$output" "create-link	now-i-work-in-legacy	$ACTIVE/legacy"
+[ -L "$ACTIVE/legacy" ] || fail "import-now apply should create symlink"
 
 output="$($CLI add --dry-run)"
 assert_contains "$output" "summary	mode=dry-run	direction=both"
@@ -159,8 +170,15 @@ assert_contains "$output" "cmux_bin"
 
 INSTALL_RC="$TMPDIR/zshrc"
 INSTALL_BIN_DIR="$TMPDIR/bin"
+INSTALL_HOME="$TMPDIR/install-home"
+INSTALL_CONFIG="$TMPDIR/install-config/config"
+INSTALL_ACTIVE="$TMPDIR/install-active"
 
-install_output="$(C4J_BIN_DIR="$INSTALL_BIN_DIR" C4J_SHELL_RC="$INSTALL_RC" bash "$ROOT/scripts/install.sh" --dry-run)"
+run_install() {
+  HOME="$INSTALL_HOME" C4J_CONFIG="$INSTALL_CONFIG" C4J_ACTIVE_DIR="$INSTALL_ACTIVE" bash "$ROOT/scripts/install.sh" "$@"
+}
+
+install_output="$(HOME="$INSTALL_HOME" C4J_CONFIG="$INSTALL_CONFIG" C4J_ACTIVE_DIR="$INSTALL_ACTIVE" C4J_BIN_DIR="$INSTALL_BIN_DIR" C4J_SHELL_RC="$INSTALL_RC" bash "$ROOT/scripts/install.sh" --dry-run)"
 assert_contains "$install_output" "would-install-bin	$ROOT/bin/cmux4justn	$INSTALL_BIN_DIR/c4j"
 assert_contains "$install_output" "would-skip-rc"
 [ ! -e "$INSTALL_BIN_DIR/c4j" ] || fail "install dry-run should not create bin"
@@ -173,30 +191,30 @@ assert_contains "$install_output" "would-skip-rc"
 } > "$INSTALL_RC"
 mkdir -p "$INSTALL_BIN_DIR"
 install -m 0755 "$ROOT/bin/cmux4justn" "$INSTALL_BIN_DIR/c4j"
-install_output="$(bash "$ROOT/scripts/install.sh" --shell-rc "$INSTALL_RC" --bin-dir "$INSTALL_BIN_DIR")"
+install_output="$(run_install --shell-rc "$INSTALL_RC" --bin-dir "$INSTALL_BIN_DIR")"
 assert_contains "$install_output" "skip existing-bin	$INSTALL_BIN_DIR/c4j"
 assert_contains "$install_output" "skip existing-alias	$INSTALL_RC"
 rm -f "$INSTALL_RC" "$INSTALL_BIN_DIR/c4j"
 
-install_output="$(bash "$ROOT/scripts/install.sh" --dry-run --shell-rc "$INSTALL_RC" --bin-dir "$INSTALL_BIN_DIR")"
+install_output="$(run_install --dry-run --shell-rc "$INSTALL_RC" --bin-dir "$INSTALL_BIN_DIR")"
 assert_contains "$install_output" "would-install-bin"
 assert_contains "$install_output" "would-update-rc	$INSTALL_RC"
 [ ! -e "$INSTALL_BIN_DIR/c4j" ] || fail "install dry-run should not create bin copy"
 
-install_output="$(bash "$ROOT/scripts/install.sh" --dry-run --no-rc --bin-dir "$INSTALL_BIN_DIR")"
+install_output="$(run_install --dry-run --no-rc --bin-dir "$INSTALL_BIN_DIR")"
 assert_contains "$install_output" "would-skip-rc"
 assert_not_contains "$install_output" "would-update-rc"
 
-install_output="$(bash "$ROOT/scripts/install.sh" --no-rc --bin-dir "$INSTALL_BIN_DIR")"
+install_output="$(run_install --no-rc --bin-dir "$INSTALL_BIN_DIR")"
 assert_contains "$install_output" "installed-bin	$INSTALL_BIN_DIR/c4j"
 assert_contains "$install_output" "skip rc-update"
 [ -x "$INSTALL_BIN_DIR/c4j" ] || fail "install apply should create executable bin copy"
 
-install_output="$(bash "$ROOT/scripts/install.sh" --no-rc --bin-dir "$INSTALL_BIN_DIR")"
+install_output="$(run_install --no-rc --bin-dir "$INSTALL_BIN_DIR")"
 assert_contains "$install_output" "skip existing-bin	$INSTALL_BIN_DIR/c4j"
 
 printf 'different\n' > "$INSTALL_BIN_DIR/c4j"
-if install_output="$(bash "$ROOT/scripts/install.sh" --no-rc --bin-dir "$INSTALL_BIN_DIR" 2>&1)"; then
+if install_output="$(run_install --no-rc --bin-dir "$INSTALL_BIN_DIR" 2>&1)"; then
   fail "install should fail rather than overwrite different bin target"
 fi
 assert_contains "$install_output" "target executable already exists and differs"
@@ -283,7 +301,7 @@ assert_contains "$output" "download-source	file://$ROOT	$STDIN_BOOTSTRAP_INSTALL
 assert_contains "$output" "installed-bin	$STDIN_BOOTSTRAP_HOME/.local/bin/c4j"
 [ -x "$STDIN_BOOTSTRAP_HOME/.local/bin/c4j" ] || fail "stdin bootstrap install should create c4j executable"
 
-[ "$($CLI version)" = "0.5.0" ] || fail "version mismatch"
-[ "$("$ROOT/bin/cmux4justn" version)" = "0.5.0" ] || fail "legacy version mismatch"
+[ "$($CLI version)" = "0.6.0" ] || fail "version mismatch"
+[ "$("$ROOT/bin/cmux4justn" version)" = "0.6.0" ] || fail "legacy version mismatch"
 
 printf 'PASS cmux4justn tests\n'
