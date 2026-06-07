@@ -13,7 +13,9 @@ fail() {
 
 script_dir=""
 if [ -n "${BASH_SOURCE[0]-}" ]; then
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd -P || true)"
+  if script_dir_candidate="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd -P)"; then
+    script_dir="$script_dir_candidate"
+  fi
 fi
 if [ -n "$script_dir" ] && [ -x "$script_dir/scripts/install.sh" ] && [ -x "$script_dir/bin/cmux4justn" ]; then
   exec "$script_dir/scripts/install.sh" "$@"
