@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.7.0 - 2026-06-08
+
+### Changed
+
+- Documented and tested persistent `name-prefix` configuration for cmux workspace titles.
+- Added `prefix` and `workspace-prefix` aliases for the same config field.
+
 ## v0.6.0 - 2026-06-08
 
 ### Added

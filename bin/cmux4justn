@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="0.6.0"
+VERSION="0.7.0"
 DEFAULT_ACTIVE_DIR="${HOME:-/Users/justn}/.c4j/active"
 CONFIG_FILE="${C4J_CONFIG:-${CMUX4JUSTN_CONFIG:-${HOME:-/Users/justn}/.c4j/config}}"
 
@@ -21,7 +21,7 @@ NAME_PREFIX="${C4J_NAME_PREFIX:-${CMUX4JUSTN_NAME_PREFIX:-${CONFIG_NAME_PREFIX:-
 
 usage() {
   cat <<'USAGE'
-c4j v0.6.0 - tiny active-project <-> cmux sync
+c4j v0.7.0 - tiny active-project <-> cmux sync
 
 Usage:
   c4j add [--dry-run|--apply] <path>...
@@ -31,7 +31,9 @@ Usage:
   c4j list
   c4j config get
   c4j config set active-dir <path>
+  c4j config set name-prefix <prefix>
   c4j config unset active-dir
+  c4j config unset name-prefix
   c4j config path
   c4j doctor
   c4j version
@@ -183,7 +185,7 @@ config_key_for_field() {
     cmux-bin)
       printf 'cmux_bin\n'
       ;;
-    name-prefix)
+    name-prefix|prefix|workspace-prefix)
       printf 'name_prefix\n'
       ;;
     *)
@@ -202,7 +204,11 @@ config_value_for_field() {
     cmux-bin)
       printf '%s\n' "$value"
       ;;
-    name-prefix)
+    name-prefix|prefix|workspace-prefix)
+      [ -n "$value" ] || return 1
+      case "$value" in
+        *$'\t'*|*$'\r'*|*$'\n'*) return 1 ;;
+      esac
       printf '%s\n' "$value"
       ;;
     *)

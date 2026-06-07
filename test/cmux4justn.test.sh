@@ -272,6 +272,12 @@ output="$(env -u C4J_ACTIVE_DIR -u CMUX4JUSTN_ACTIVE_DIR HOME="$CONFIG_HOME" C4J
 assert_contains "$output" "set	active_dir	$CONFIG_ACTIVE_RESOLVED"
 output="$(env -u C4J_ACTIVE_DIR -u CMUX4JUSTN_ACTIVE_DIR HOME="$CONFIG_HOME" C4J_CMUX_BIN="$FAKE_CMUX" "$CLI" config get)"
 assert_contains "$output" "active_dir	$CONFIG_ACTIVE_RESOLVED"
+output="$(env -u C4J_ACTIVE_DIR -u CMUX4JUSTN_ACTIVE_DIR HOME="$CONFIG_HOME" C4J_CMUX_BIN="$FAKE_CMUX" "$CLI" config set name-prefix "mine/")"
+assert_contains "$output" "set	name_prefix	mine/"
+output="$(env -u C4J_ACTIVE_DIR -u CMUX4JUSTN_ACTIVE_DIR HOME="$CONFIG_HOME" C4J_CMUX_BIN="$FAKE_CMUX" "$CLI" config get)"
+assert_contains "$output" "name_prefix	mine/"
+output="$(env -u C4J_ACTIVE_DIR -u CMUX4JUSTN_ACTIVE_DIR HOME="$CONFIG_HOME" C4J_CMUX_BIN="$FAKE_CMUX" "$CLI" config unset prefix)"
+assert_contains "$output" "unset	name_prefix"
 output="$(env -u C4J_ACTIVE_DIR -u CMUX4JUSTN_ACTIVE_DIR HOME="$CONFIG_HOME" C4J_CMUX_BIN="$FAKE_CMUX" "$CLI" doctor)"
 assert_contains "$output" "config_file	$CONFIG_HOME/.c4j/config	ok"
 assert_contains "$output" "active_dir	$CONFIG_ACTIVE_RESOLVED	ok"
@@ -301,7 +307,7 @@ assert_contains "$output" "download-source	file://$ROOT	$STDIN_BOOTSTRAP_INSTALL
 assert_contains "$output" "installed-bin	$STDIN_BOOTSTRAP_HOME/.local/bin/c4j"
 [ -x "$STDIN_BOOTSTRAP_HOME/.local/bin/c4j" ] || fail "stdin bootstrap install should create c4j executable"
 
-[ "$($CLI version)" = "0.6.0" ] || fail "version mismatch"
-[ "$("$ROOT/bin/cmux4justn" version)" = "0.6.0" ] || fail "legacy version mismatch"
+[ "$($CLI version)" = "0.7.0" ] || fail "version mismatch"
+[ "$("$ROOT/bin/cmux4justn" version)" = "0.7.0" ] || fail "legacy version mismatch"
 
 printf 'PASS cmux4justn tests\n'

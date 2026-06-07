@@ -9,7 +9,7 @@ It is intentionally conservative: it creates missing symlinks and missing cmux w
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.6.0/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.7.0/install.sh | bash
 ```
 
 The installer:
@@ -43,6 +43,9 @@ c4j list
 
 # Change the default active registry.
 c4j config set active-dir ~/Workspaces/now
+
+# Change the cmux workspace title prefix.
+c4j config set name-prefix "now-i-work-in-"
 
 # Preview a full two-way sync.
 c4j sync --direction both --dry-run
@@ -129,9 +132,28 @@ c4j config set active-dir ~/Workspaces/now
 c4j config get
 ```
 
+### `c4j config set name-prefix <prefix>`
+
+Stores the prefix used for cmux workspace titles. The default is `@active/`.
+
+```bash
+c4j config set name-prefix "now-i-work-in-"
+c4j config set prefix "@active/"
+c4j config get
+```
+
+Aliases for the same setting:
+
+- `prefix`
+- `workspace-prefix`
+
 ### `c4j config unset active-dir`
 
 Removes the stored active registry setting and falls back to the default or environment variables.
+
+### `c4j config unset name-prefix`
+
+Removes the stored workspace title prefix and falls back to the default or environment variables.
 
 ### `c4j config path`
 
@@ -149,13 +171,13 @@ Prints the CLI version.
 
 ```bash
 # Install a specific release.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.6.0/install.sh | C4J_REF=v0.6.0 bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.7.0/install.sh | C4J_REF=v0.7.0 bash
 
 # Install from main instead of the release pinned by the bootstrap script.
 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash
 
 # Download source somewhere else.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.6.0/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.7.0/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
 
 # Preview all installer actions.
 scripts/install.sh --dry-run

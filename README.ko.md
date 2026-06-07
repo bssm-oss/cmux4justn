@@ -9,7 +9,7 @@
 ## 설치
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.6.0/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.7.0/install.sh | bash
 ```
 
 설치 스크립트는 기본적으로 다음 작업을 합니다.
@@ -43,6 +43,9 @@ c4j list
 
 # 기본 active registry를 바꿉니다.
 c4j config set active-dir ~/Workspaces/now
+
+# cmux 워크스페이스 title prefix를 바꿉니다.
+c4j config set name-prefix "now-i-work-in-"
 
 # 양방향 동기화를 미리 확인합니다.
 c4j sync --direction both --dry-run
@@ -129,9 +132,28 @@ c4j config set active-dir ~/Workspaces/now
 c4j config get
 ```
 
+### `c4j config set name-prefix <prefix>`
+
+cmux 워크스페이스 title에 붙일 prefix를 config 파일에 저장합니다. 기본값은 `@active/`입니다.
+
+```bash
+c4j config set name-prefix "now-i-work-in-"
+c4j config set prefix "@active/"
+c4j config get
+```
+
+같은 설정을 가리키는 alias:
+
+- `prefix`
+- `workspace-prefix`
+
 ### `c4j config unset active-dir`
 
 저장된 active registry 설정을 제거하고 기본값 또는 환경 변수 설정으로 돌아갑니다.
+
+### `c4j config unset name-prefix`
+
+저장된 workspace title prefix 설정을 제거하고 기본값 또는 환경 변수 설정으로 돌아갑니다.
 
 ### `c4j config path`
 
@@ -149,13 +171,13 @@ CLI 버전을 출력합니다.
 
 ```bash
 # 특정 릴리즈를 설치합니다.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.6.0/install.sh | C4J_REF=v0.6.0 bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.7.0/install.sh | C4J_REF=v0.7.0 bash
 
 # bootstrap script에 고정된 릴리즈 대신 main에서 설치합니다.
 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash
 
 # source 다운로드 위치를 바꿉니다.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.6.0/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.7.0/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
 
 # 설치 작업을 미리 확인합니다.
 scripts/install.sh --dry-run
