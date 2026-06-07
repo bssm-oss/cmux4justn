@@ -20,7 +20,7 @@ scripts/install.sh
 - `~/.c4j/active` active registry 생성
 - `--rc` 옵션이 없으면 shell rc 파일은 수정하지 않음
 
-`~/.local/bin`이 `PATH`에 들어 있는지 확인한 뒤 설정 상태를 확인합니다.
+`~/.local/bin`이 `PATH`에 없으면 설치 스크립트가 shell rc에 추가할 `export` 줄을 출력합니다. 그 뒤 설정 상태를 확인합니다.
 
 ```bash
 c4j doctor

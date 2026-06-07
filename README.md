@@ -20,7 +20,7 @@ The installer:
 - creates the active-project registry at `~/.c4j/active`
 - leaves shell rc files alone unless `--rc` is passed
 
-Make sure `~/.local/bin` is on `PATH`, then check the setup:
+If `~/.local/bin` is not on `PATH`, the installer prints the exact export line to add to your shell rc. Then check the setup:
 
 ```bash
 c4j doctor

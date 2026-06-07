@@ -224,7 +224,7 @@ assert_contains "$launch_output" "removed	$LAUNCH_AGENTS_DIR/com.justn.c4j.sync.
 [ ! -e "$LAUNCH_AGENTS_DIR/com.justn.c4j.sync.plist" ] || fail "launchd uninstall apply should remove plist"
 assert_contains "$(cat "$CMUX_LAUNCHCTL_CALLS")" "unload"
 
-[ "$($CLI version)" = "0.2.0" ] || fail "version mismatch"
-[ "$("$ROOT/bin/cmux4justn" version)" = "0.2.0" ] || fail "legacy version mismatch"
+[ "$($CLI version)" = "0.2.1" ] || fail "version mismatch"
+[ "$("$ROOT/bin/cmux4justn" version)" = "0.2.1" ] || fail "legacy version mismatch"
 
 printf 'PASS cmux4justn tests\n'

@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.2.1 - 2026-06-08
+
+### Changed
+
+- Improved installer UX with a final setup summary and explicit next steps.
+- Added a PATH notice when the install directory is not available in the current shell.
+- Updated English and Korean README install guidance to match the installer output.
+
+### Verification
+
+- `bash -n bin/c4j bin/cmux4justn scripts/install.sh scripts/launchd.sh test/cmux4justn.test.sh`
+- `bash test/cmux4justn.test.sh`
+- `shellcheck bin/c4j bin/cmux4justn scripts/install.sh scripts/launchd.sh test/cmux4justn.test.sh`
+- Fresh temporary HOME install with and without `~/.local/bin` on `PATH`
+
 ## v0.2.0 - 2026-06-08
 
 ### Added

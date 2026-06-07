@@ -40,6 +40,44 @@ fail() {
   exit 1
 }
 
+path_has_dir() {
+  local dir="$1"
+  case ":${PATH:-}:" in
+    *":$dir:"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+print_next_steps() {
+  printf '\n'
+  printf 'c4j is installed.\n'
+  printf '  executable: %s\n' "$TARGET_CLI"
+  printf '  active dir: %s\n' "$ACTIVE_DIR"
+
+  if [ "$INSTALL_BIN" -eq 1 ] && ! path_has_dir "$BIN_DIR"; then
+    printf '\n'
+    printf 'PATH notice:\n'
+    printf '  %s is not currently on PATH.\n' "$BIN_DIR"
+    printf '  Add this to your shell rc, then open a new shell:\n'
+    printf '    export PATH="%s:$%s"\n' "$BIN_DIR" "PATH"
+    printf '  Or reinstall with --rc to add an alias fallback.\n'
+  fi
+
+  if [ "$UPDATE_RC" -eq 1 ]; then
+    printf '\n'
+    printf 'Shell rc updated. Open a new shell or run:\n'
+    printf '  source %s\n' "$SHELL_RC"
+  fi
+
+  printf '\n'
+  printf 'Check setup:\n'
+  if [ "$INSTALL_BIN" -eq 1 ] && path_has_dir "$BIN_DIR"; then
+    printf '  c4j doctor\n'
+  else
+    printf '  %s doctor\n' "$TARGET_CLI"
+  fi
+}
+
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --dry-run)
@@ -121,6 +159,10 @@ if [ "$DRY_RUN" -eq 1 ]; then
   else
     printf 'would-skip-rc\n'
   fi
+
+  if [ "$INSTALL_BIN" -eq 1 ] && ! path_has_dir "$BIN_DIR"; then
+    printf 'would-warn-path-missing\t%s\n' "$BIN_DIR"
+  fi
   exit 0
 fi
 
@@ -151,6 +193,7 @@ fi
 
 if [ "$UPDATE_RC" -ne 1 ]; then
   printf 'skip rc-update\n'
+  print_next_steps
   exit 0
 fi
 
@@ -159,12 +202,14 @@ touch "$SHELL_RC"
 
 if grep -F "$ALIAS_LINE" "$SHELL_RC" >/dev/null 2>&1; then
   printf 'skip existing-alias\t%s\n' "$SHELL_RC"
+  print_next_steps
   exit 0
 fi
 
 if grep -F "$MARKER_START" "$SHELL_RC" >/dev/null 2>&1; then
   if grep -F "alias c4j='${TARGET_CLI}'" "$SHELL_RC" >/dev/null 2>&1; then
     printf 'skip existing-alias\t%s\n' "$SHELL_RC"
+    print_next_steps
     exit 0
   fi
   printf 'error: c4j marker exists but alias differs: %s\n' "$SHELL_RC" >&2
@@ -179,3 +224,4 @@ fi
 
 printf 'installed-rc\t%s\n' "$SHELL_RC"
 printf 'alias\tc4j -> %s\n' "$TARGET_CLI"
+print_next_steps
