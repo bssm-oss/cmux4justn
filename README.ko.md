@@ -9,13 +9,12 @@
 ## 설치
 
 ```bash
-git clone https://github.com/bssm-oss/cmux4justn ~/.local/share/c4j
-cd ~/.local/share/c4j
-scripts/install.sh
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | bash
 ```
 
 설치 스크립트는 기본적으로 다음 작업을 합니다.
 
+- source를 `~/.local/share/c4j`에 다운로드
 - `~/.local/bin/c4j`에 실행 파일 설치
 - `~/.c4j/active` active registry 생성
 - active registry 경로를 `~/.c4j/config`에 저장
@@ -113,6 +112,12 @@ CLI 버전을 출력합니다.
 ## 설치 옵션
 
 ```bash
+# 특정 릴리즈를 설치합니다.
+C4J_REF=v0.4.0 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | bash
+
+# source 다운로드 위치를 바꿉니다.
+C4J_INSTALL_DIR="$HOME/src/c4j" curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | bash
+
 # 설치 작업을 미리 확인합니다.
 scripts/install.sh --dry-run
 
@@ -214,14 +219,14 @@ scripts/launchd.sh uninstall --apply --load
 로컬 테스트:
 
 ```bash
-bash -n bin/c4j bin/cmux4justn scripts/install.sh scripts/launchd.sh test/cmux4justn.test.sh
+bash -n bin/c4j bin/cmux4justn install.sh scripts/install.sh scripts/launchd.sh test/cmux4justn.test.sh
 bash test/cmux4justn.test.sh
 ```
 
 `shellcheck`가 있으면 함께 실행합니다.
 
 ```bash
-shellcheck bin/c4j bin/cmux4justn scripts/install.sh scripts/launchd.sh test/cmux4justn.test.sh
+shellcheck bin/c4j bin/cmux4justn install.sh scripts/install.sh scripts/launchd.sh test/cmux4justn.test.sh
 ```
 
 CI는 push와 pull request에서 이 검사를 실행합니다.

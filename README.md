@@ -9,13 +9,12 @@ It is intentionally conservative: it creates missing symlinks and missing cmux w
 ## Install
 
 ```bash
-git clone https://github.com/bssm-oss/cmux4justn ~/.local/share/c4j
-cd ~/.local/share/c4j
-scripts/install.sh
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | bash
 ```
 
 The installer:
 
+- downloads the source into `~/.local/share/c4j`
 - installs `c4j` into `~/.local/bin/c4j`
 - creates the active-project registry at `~/.c4j/active`
 - writes the active registry path to `~/.c4j/config`
@@ -113,6 +112,12 @@ Prints the CLI version.
 ## Installer Options
 
 ```bash
+# Install a specific release.
+C4J_REF=v0.4.0 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | bash
+
+# Download source somewhere else.
+C4J_INSTALL_DIR="$HOME/src/c4j" curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | bash
+
 # Preview all installer actions.
 scripts/install.sh --dry-run
 
@@ -214,14 +219,14 @@ Test-safe overrides:
 Run the local test suite:
 
 ```bash
-bash -n bin/c4j bin/cmux4justn scripts/install.sh scripts/launchd.sh test/cmux4justn.test.sh
+bash -n bin/c4j bin/cmux4justn install.sh scripts/install.sh scripts/launchd.sh test/cmux4justn.test.sh
 bash test/cmux4justn.test.sh
 ```
 
 Run shellcheck when available:
 
 ```bash
-shellcheck bin/c4j bin/cmux4justn scripts/install.sh scripts/launchd.sh test/cmux4justn.test.sh
+shellcheck bin/c4j bin/cmux4justn install.sh scripts/install.sh scripts/launchd.sh test/cmux4justn.test.sh
 ```
 
 CI runs these checks on push and pull request.

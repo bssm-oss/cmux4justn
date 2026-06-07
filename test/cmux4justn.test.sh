@@ -238,7 +238,19 @@ assert_contains "$output" "active_dir	$CONFIG_ACTIVE_RESOLVED	ok"
 output="$(env -u C4J_ACTIVE_DIR -u CMUX4JUSTN_ACTIVE_DIR HOME="$CONFIG_HOME" "$CLI" config unset active-dir)"
 assert_contains "$output" "unset	active_dir"
 
-[ "$($CLI version)" = "0.3.0" ] || fail "version mismatch"
-[ "$("$ROOT/bin/cmux4justn" version)" = "0.3.0" ] || fail "legacy version mismatch"
+BOOTSTRAP_HOME="$TMPDIR/bootstrap-home"
+BOOTSTRAP_INSTALL_DIR="$TMPDIR/bootstrap-source"
+BOOTSTRAP_ACTIVE="$TMPDIR/bootstrap-active"
+mkdir -p "$BOOTSTRAP_HOME" "$BOOTSTRAP_ACTIVE"
+cp "$ROOT/install.sh" "$TMPDIR/bootstrap-install.sh"
+chmod +x "$TMPDIR/bootstrap-install.sh"
+output="$(HOME="$BOOTSTRAP_HOME" C4J_REPO_URL="$ROOT" C4J_REF="main" C4J_INSTALL_DIR="$BOOTSTRAP_INSTALL_DIR" C4J_ACTIVE_DIR="$BOOTSTRAP_ACTIVE" bash "$TMPDIR/bootstrap-install.sh" --no-rc)"
+assert_contains "$output" "download-source	$ROOT	$BOOTSTRAP_INSTALL_DIR"
+assert_contains "$output" "installed-bin	$BOOTSTRAP_HOME/.local/bin/c4j"
+assert_contains "$output" "active-dir"
+[ -x "$BOOTSTRAP_HOME/.local/bin/c4j" ] || fail "bootstrap install should create c4j executable"
+
+[ "$($CLI version)" = "0.4.0" ] || fail "version mismatch"
+[ "$("$ROOT/bin/cmux4justn" version)" = "0.4.0" ] || fail "legacy version mismatch"
 
 printf 'PASS cmux4justn tests\n'

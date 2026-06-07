@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.4.0 - 2026-06-08
+
+### Added
+
+- Added a root `install.sh` bootstrapper for one-line `curl | bash` installs.
+- Documented `C4J_REF` and `C4J_INSTALL_DIR` for release pinning and custom source locations.
+
 ## v0.3.0 - 2026-06-08
 
 ### Added
