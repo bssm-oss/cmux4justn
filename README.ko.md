@@ -2,9 +2,20 @@
 
 [English README](README.md)
 
-`c4j`는 지금 작업 중인 프로젝트 목록과 cmux 워크스페이스를 맞춰 주는 작은 shell CLI입니다.
+`c4j`는 active project symlink와 cmux 워크스페이스를 동기화하는 macOS shell CLI입니다.
 
-프로젝트 파일을 옮기지 않고, active registry에 symlink만 만들고, 필요한 cmux 워크스페이스만 생성합니다. 기본 동작은 보수적입니다. `c4j delete`를 명시적으로 실행할 때만 active symlink를 제거하거나 cmux 워크스페이스를 닫습니다.
+cmux 사용자가 프로젝트 추가, active 목록 확인, workspace title 동기화, legacy `now-i-work-in-*` 워크스페이스 가져오기, `~/Workspaces` pinned anchor workspace 관리를 작은 CLI 하나로 처리할 수 있게 합니다.
+
+`c4j`는 프로젝트 파일을 옮기지 않고, active registry에 symlink만 만들고, 필요한 cmux 워크스페이스만 생성합니다. 기본 동작은 보수적입니다. `c4j delete`를 명시적으로 실행할 때만 active symlink를 제거하거나 cmux 워크스페이스를 닫습니다.
+
+## 기능
+
+- plain Bash script 기반 한 줄 macOS 설치
+- `~/.c4j/active` symlink 기반 active project registry
+- `@active/`, `now-i-work-in-` 같은 configurable title prefix로 cmux workspace sync
+- 기존 `now-i-work-in-*` cmux workspace import
+- `c4j anchor`를 통한 pinned cmux anchor workspace 관리
+- 안전한 기본값: dry-run sync, 명시적 apply, 실제 프로젝트 디렉터리 삭제 없음
 
 ## 설치
 
