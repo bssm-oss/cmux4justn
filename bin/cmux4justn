@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="0.8.0"
+VERSION="0.9.0"
 DEFAULT_ACTIVE_DIR="${HOME:-/Users/justn}/.c4j/active"
 CONFIG_FILE="${C4J_CONFIG:-${CMUX4JUSTN_CONFIG:-${HOME:-/Users/justn}/.c4j/config}}"
 
@@ -21,7 +21,7 @@ NAME_PREFIX="${C4J_NAME_PREFIX:-${CMUX4JUSTN_NAME_PREFIX:-${CONFIG_NAME_PREFIX:-
 
 usage() {
   cat <<'USAGE'
-c4j v0.8.0 - tiny active-project <-> cmux sync
+c4j v0.9.0 - tiny active-project <-> cmux sync
 
 Usage:
   c4j add [--dry-run|--apply] <path>...
@@ -175,6 +175,16 @@ workspace_ref_for_title() {
   local inventory_file="$1"
   local title="$2"
   awk -F '\t' -v title="$title" '$1 == title { print $3; found = 1; exit } END { exit found ? 0 : 1 }' "$inventory_file"
+}
+
+print_apply_hint() {
+  local command="$1"
+  shift
+  printf 'note\tdry-run\tapply with: c4j %s' "$command"
+  if [ "$#" -gt 0 ]; then
+    printf ' %s' "$@"
+  fi
+  printf ' --apply\n'
 }
 
 config_key_for_field() {
@@ -508,12 +518,16 @@ cmd_delete() {
 
   printf 'summary\tmode=%s\tplanned_links=%s\tremoved_links=%s\tplanned_workspaces=%s\tclosed_workspaces=%s\tskipped=%s\n' \
     "$mode" "$planned_links" "$removed_links" "$planned_workspaces" "$closed_workspaces" "$skipped"
+  if [ "$mode" = "dry-run" ]; then
+    print_apply_hint delete "${targets[@]}"
+  fi
 }
 
 cmd_import_now() {
   local mode="dry-run"
   local cmux_bin
   local legacy_prefix="now-i-work-in-"
+  local previous_apply_hint="${C4J_APPLY_HINT_COMMAND:-}"
   cmux_bin="$(find_cmux)"
 
   while [ "$#" -gt 0 ]; do
@@ -551,7 +565,12 @@ cmd_import_now() {
     esac
   done
 
-  cmd_sync --direction cmux-to-active "--$mode" --name-prefix "$legacy_prefix" --cmux "$cmux_bin" --active-dir "$ACTIVE_DIR"
+  C4J_APPLY_HINT_COMMAND="import-now" cmd_sync --direction cmux-to-active "--$mode" --name-prefix "$legacy_prefix" --cmux "$cmux_bin" --active-dir "$ACTIVE_DIR"
+  if [ -n "$previous_apply_hint" ]; then
+    C4J_APPLY_HINT_COMMAND="$previous_apply_hint"
+  else
+    unset C4J_APPLY_HINT_COMMAND
+  fi
 }
 
 cmd_sync() {
@@ -730,6 +749,9 @@ cmd_sync() {
 
   printf 'summary\tmode=%s\tdirection=%s\tplanned_workspaces=%s\tcreated_workspaces=%s\tplanned_links=%s\tcreated_links=%s\tskipped=%s\n' \
     "$mode" "$direction" "$planned_workspaces" "$created_workspaces" "$planned_links" "$created_links" "$skipped"
+  if [ "$mode" = "dry-run" ]; then
+    print_apply_hint "${C4J_APPLY_HINT_COMMAND:-sync}"
+  fi
 }
 
 cmd_list() {

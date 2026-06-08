@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.9.0 - 2026-06-08
+
+### Changed
+
+- Added dry-run apply hints to `sync`, `import-now`, and `delete` output.
+
 ## v0.8.0 - 2026-06-08
 
 ### Changed

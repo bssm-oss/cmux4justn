@@ -82,6 +82,7 @@ assert_contains "$output" "would-create-workspace	@active/beta"
 assert_contains "$output" "skip duplicate-target	@active/beta-copy"
 assert_contains "$output" "skip broken-or-non-dir	missing"
 assert_contains "$output" "summary	mode=dry-run	direction=active-to-cmux"
+assert_contains "$output" "note	dry-run	apply with: c4j sync --apply"
 [ ! -e "$CALLS" ] || fail "dry-run should not call new-workspace"
 
 output="$($CLI sync --apply)"
@@ -108,6 +109,7 @@ rm -f "$ACTIVE/gamma"
 output="$($CLI import-now --dry-run)"
 assert_contains "$output" "would-create-link	now-i-work-in-legacy	$ACTIVE/legacy"
 assert_contains "$output" "skip unsafe-name	now-i-work-in-bad/name"
+assert_contains "$output" "note	dry-run	apply with: c4j import-now --apply"
 [ ! -e "$ACTIVE/legacy" ] || fail "import-now dry-run should not create symlink"
 
 output="$($CLI import-now --apply)"
@@ -145,6 +147,7 @@ assert_contains "$output" "link	$ACTIVE/gamma"
 output="$($CLI delete --dry-run gamma)"
 assert_contains "$output" "would-unlink	gamma	$ACTIVE/gamma"
 assert_contains "$output" "would-close-workspace	@active/gamma	workspace:3"
+assert_contains "$output" "note	dry-run	apply with: c4j delete gamma --apply"
 [ -L "$ACTIVE/gamma" ] || fail "delete dry-run should not remove symlink"
 
 output="$($CLI delete --apply gamma)"
@@ -314,7 +317,7 @@ assert_contains "$output" "download-source	file://$ROOT	$STDIN_BOOTSTRAP_INSTALL
 assert_contains "$output" "installed-bin	$STDIN_BOOTSTRAP_HOME/.local/bin/c4j"
 [ -x "$STDIN_BOOTSTRAP_HOME/.local/bin/c4j" ] || fail "stdin bootstrap install should create c4j executable"
 
-[ "$($CLI version)" = "0.8.0" ] || fail "version mismatch"
-[ "$("$ROOT/bin/cmux4justn" version)" = "0.8.0" ] || fail "legacy version mismatch"
+[ "$($CLI version)" = "0.9.0" ] || fail "version mismatch"
+[ "$("$ROOT/bin/cmux4justn" version)" = "0.9.0" ] || fail "legacy version mismatch"
 
 printf 'PASS cmux4justn tests\n'
