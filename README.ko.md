@@ -9,7 +9,7 @@
 ## 설치
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.9.0/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.0/install.sh | bash
 ```
 
 설치 스크립트는 기본적으로 다음 작업을 합니다.
@@ -31,6 +31,9 @@ c4j doctor
 ```bash
 # 프로젝트를 active registry에 추가하고 cmux와 동기화합니다.
 c4j add ~/Workspaces/repos/justn-hyeok/cmux4justn
+
+# pinned cmux anchor workspace를 보장합니다.
+c4j anchor
 
 # 프로젝트를 active registry에서 제거하고 cmux 워크스페이스도 닫습니다.
 c4j delete cmux4justn
@@ -64,6 +67,20 @@ c4j sync --direction both --apply
 
 ```bash
 c4j add
+```
+
+### `c4j anchor [--dry-run|--apply] [--name <title>] [--cwd <path>]`
+
+pinned cmux anchor workspace가 존재하도록 보장합니다. 기본값은 다음과 같습니다.
+
+- title: `justn-is-always-around-here`
+- cwd: `~/Workspaces`
+- color: `Teal`
+
+```bash
+c4j anchor
+c4j anchor --dry-run
+c4j anchor --name justn-is-always-around-here --cwd ~/Workspaces
 ```
 
 ### `c4j delete [--dry-run|--apply] [--keep-cmux] <name-or-path>...`
@@ -175,13 +192,13 @@ CLI 버전을 출력합니다.
 
 ```bash
 # 특정 릴리즈를 설치합니다.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.9.0/install.sh | C4J_REF=v0.9.0 bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.0/install.sh | C4J_REF=v0.10.0 bash
 
 # bootstrap script에 고정된 릴리즈 대신 main에서 설치합니다.
 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash
 
 # source 다운로드 위치를 바꿉니다.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.9.0/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.0/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
 
 # 설치 작업을 미리 확인합니다.
 scripts/install.sh --dry-run

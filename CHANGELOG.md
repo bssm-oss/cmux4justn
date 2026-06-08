@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.10.0 - 2026-06-08
+
+### Added
+
+- Added `c4j anchor` to ensure the pinned cmux anchor workspace exists and is styled.
+
 ## v0.9.0 - 2026-06-08
 
 ### Changed

@@ -9,7 +9,7 @@ It is intentionally conservative: it creates missing symlinks and missing cmux w
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.9.0/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.0/install.sh | bash
 ```
 
 The installer:
@@ -31,6 +31,9 @@ c4j doctor
 ```bash
 # Add a project and sync cmux.
 c4j add ~/Workspaces/repos/justn-hyeok/cmux4justn
+
+# Ensure the pinned cmux anchor workspace exists.
+c4j anchor
 
 # Remove a project from the active registry and close its cmux workspace.
 c4j delete cmux4justn
@@ -64,6 +67,20 @@ With no path, `add` only runs the two-way sync:
 
 ```bash
 c4j add
+```
+
+### `c4j anchor [--dry-run|--apply] [--name <title>] [--cwd <path>]`
+
+Ensures the pinned cmux anchor workspace exists. By default it uses:
+
+- title: `justn-is-always-around-here`
+- cwd: `~/Workspaces`
+- color: `Teal`
+
+```bash
+c4j anchor
+c4j anchor --dry-run
+c4j anchor --name justn-is-always-around-here --cwd ~/Workspaces
 ```
 
 ### `c4j delete [--dry-run|--apply] [--keep-cmux] <name-or-path>...`
@@ -175,13 +192,13 @@ Prints the CLI version.
 
 ```bash
 # Install a specific release.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.9.0/install.sh | C4J_REF=v0.9.0 bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.0/install.sh | C4J_REF=v0.10.0 bash
 
 # Install from main instead of the release pinned by the bootstrap script.
 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash
 
 # Download source somewhere else.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.9.0/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.0/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
 
 # Preview all installer actions.
 scripts/install.sh --dry-run

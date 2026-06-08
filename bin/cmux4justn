@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="0.9.0"
+VERSION="0.10.0"
 DEFAULT_ACTIVE_DIR="${HOME:-/Users/justn}/.c4j/active"
+DEFAULT_ANCHOR_DIR="${HOME:-/Users/justn}/Workspaces"
 CONFIG_FILE="${C4J_CONFIG:-${CMUX4JUSTN_CONFIG:-${HOME:-/Users/justn}/.c4j/config}}"
 
 config_get_value() {
@@ -21,10 +22,11 @@ NAME_PREFIX="${C4J_NAME_PREFIX:-${CMUX4JUSTN_NAME_PREFIX:-${CONFIG_NAME_PREFIX:-
 
 usage() {
   cat <<'USAGE'
-c4j v0.9.0 - tiny active-project <-> cmux sync
+c4j v0.10.0 - tiny active-project <-> cmux sync
 
 Usage:
   c4j add [--dry-run|--apply] <path>...
+  c4j anchor [--dry-run|--apply] [--name <title>] [--cwd <path>]
   c4j delete [--dry-run|--apply] [--keep-cmux] <name-or-path>...
   c4j import-now [--dry-run|--apply]
   c4j sync [--dry-run|--apply] [--direction active-to-cmux|cmux-to-active|both]
@@ -40,6 +42,7 @@ Usage:
 
 Defaults:
   add  => --apply, then sync --direction both
+  anchor => --apply, ensure a pinned cmux workspace at ~/Workspaces
   delete => --apply, remove active symlink and close matching cmux workspace
   import-now => --dry-run, import legacy now-i-work-in-* cmux workspaces
   sync => --dry-run --direction active-to-cmux
@@ -48,6 +51,7 @@ Environment:
   C4J_ACTIVE_DIR   default: ~/.c4j/active
   C4J_CMUX_BIN     default: cmux from PATH or /Applications/cmux.app/Contents/Resources/bin/cmux
   C4J_NAME_PREFIX  default: @active/
+  C4J_ANCHOR_DIR   default: ~/Workspaces
   C4J_CONFIG       default: ~/.c4j/config
 
 Compatibility:
@@ -362,6 +366,120 @@ cmd_add() {
   done
 
   cmd_sync --direction both "--$mode"
+}
+
+cmd_anchor() {
+  local mode="apply"
+  local cmux_bin
+  local anchor_name="${C4J_ANCHOR_NAME:-justn-is-always-around-here}"
+  local anchor_cwd="${C4J_ANCHOR_DIR:-$DEFAULT_ANCHOR_DIR}"
+  local anchor_color="${C4J_ANCHOR_COLOR:-Teal}"
+  local anchor_description="${C4J_ANCHOR_DESCRIPTION:-Anchor workspace for ~/Workspaces, parent of now/.}"
+  cmux_bin="$(find_cmux)"
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --dry-run)
+        mode="dry-run"
+        shift
+        ;;
+      --apply)
+        mode="apply"
+        shift
+        ;;
+      --name)
+        [ "$#" -ge 2 ] || fail "--name requires text"
+        anchor_name="$2"
+        shift 2
+        ;;
+      --cwd|--dir)
+        [ "$#" -ge 2 ] || fail "--cwd requires a path"
+        anchor_cwd="$2"
+        shift 2
+        ;;
+      --color)
+        [ "$#" -ge 2 ] || fail "--color requires text"
+        anchor_color="$2"
+        shift 2
+        ;;
+      --description)
+        [ "$#" -ge 2 ] || fail "--description requires text"
+        anchor_description="$2"
+        shift 2
+        ;;
+      --cmux)
+        [ "$#" -ge 2 ] || fail "--cmux requires a path"
+        cmux_bin="$2"
+        shift 2
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        fail "unknown anchor option: $1"
+        ;;
+    esac
+  done
+
+  [ -n "$anchor_name" ] || fail "anchor name cannot be empty"
+  case "$anchor_name" in
+    *$'\t'*|*$'\r'*|*$'\n'*) fail "anchor name cannot contain control whitespace" ;;
+  esac
+  anchor_cwd="$(resolve_dir "$anchor_cwd")" || fail "anchor cwd is not a directory: $anchor_cwd"
+
+  if [ "$mode" = "apply" ] && ! cmux_available "$cmux_bin"; then
+    fail "cmux executable not found: $cmux_bin"
+  fi
+
+  local inventory_file
+  inventory_file="$(mktemp)"
+  # shellcheck disable=SC2064
+  trap "rm -f '$inventory_file'" RETURN
+
+  local inventory_loaded=0
+  if load_cmux_inventory "$cmux_bin" "$inventory_file"; then
+    inventory_loaded=1
+  fi
+
+  if [ "$mode" = "apply" ] && [ "$inventory_loaded" -ne 1 ]; then
+    fail "cannot read cmux workspace inventory for apply anchor"
+  fi
+
+  local anchor_ref=""
+  if [ "$inventory_loaded" -eq 1 ]; then
+    anchor_ref="$(workspace_ref_for_title "$inventory_file" "$anchor_name" 2>/dev/null || true)"
+  fi
+
+  if [ -n "$anchor_ref" ]; then
+    printf 'skip existing-anchor\t%s\t%s\n' "$anchor_name" "$anchor_ref"
+  elif [ "$mode" = "apply" ]; then
+    "$cmux_bin" new-workspace --name "$anchor_name" --cwd "$anchor_cwd" --focus false >/dev/null
+    printf 'create-anchor\t%s\t%s\n' "$anchor_name" "$anchor_cwd"
+    if load_cmux_inventory "$cmux_bin" "$inventory_file"; then
+      anchor_ref="$(workspace_ref_for_title "$inventory_file" "$anchor_name" 2>/dev/null || true)"
+    fi
+  else
+    printf 'would-create-anchor\t%s\t%s\n' "$anchor_name" "$anchor_cwd"
+  fi
+
+  if [ "$mode" = "apply" ]; then
+    if [ -n "$anchor_ref" ]; then
+      "$cmux_bin" workspace-action --workspace "$anchor_ref" --action pin >/dev/null || true
+      "$cmux_bin" workspace-action --workspace "$anchor_ref" --action set-color --color "$anchor_color" >/dev/null || true
+      "$cmux_bin" workspace-action --workspace "$anchor_ref" --action set-description --description "$anchor_description" >/dev/null || true
+      printf 'pin-anchor\t%s\t%s\n' "$anchor_name" "$anchor_ref"
+      printf 'set-anchor-color\t%s\t%s\n' "$anchor_name" "$anchor_color"
+      printf 'set-anchor-description\t%s\t%s\n' "$anchor_name" "$anchor_description"
+    else
+      printf 'skip anchor-actions-unavailable\t%s\n' "$anchor_name"
+    fi
+  else
+    printf 'would-pin-anchor\t%s\n' "$anchor_name"
+    printf 'would-set-anchor-color\t%s\t%s\n' "$anchor_name" "$anchor_color"
+    printf 'would-set-anchor-description\t%s\t%s\n' "$anchor_name" "$anchor_description"
+    print_apply_hint anchor
+  fi
 }
 
 active_name_from_delete_arg() {
@@ -826,6 +944,10 @@ main() {
     add)
       shift
       cmd_add "$@"
+      ;;
+    anchor)
+      shift
+      cmd_anchor "$@"
       ;;
     delete|remove|rm)
       shift

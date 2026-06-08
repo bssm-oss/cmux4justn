@@ -32,6 +32,7 @@ assert_not_contains() {
 ACTIVE="$TMPDIR/@active"
 PROJECTS="$TMPDIR/projects"
 mkdir -p "$ACTIVE" "$PROJECTS/alpha" "$PROJECTS/beta" "$PROJECTS/gamma" "$PROJECTS/delta" "$PROJECTS/legacy" "$PROJECTS/unsafe"
+PROJECTS_RESOLVED="$(cd "$PROJECTS" && pwd -P)"
 ln -s "$PROJECTS/alpha" "$ACTIVE/alpha"
 ln -s "$PROJECTS/beta" "$ACTIVE/beta"
 ln -s "$PROJECTS/beta" "$ACTIVE/beta-copy"
@@ -53,7 +54,8 @@ if [ "${1:-}" = "--json" ] && [ "${2:-}" = "list-workspaces" ]; then
     {"title": "@active/bad/name", "current_directory": "$CMUX_TEST_PROJECTS/unsafe", "ref": "workspace:4"},
     {"title": "other", "current_directory": "$CMUX_TEST_PROJECTS/gamma", "ref": "workspace:5"},
     {"title": "now-i-work-in-legacy", "current_directory": "$CMUX_TEST_PROJECTS/legacy", "ref": "workspace:6"},
-    {"title": "now-i-work-in-bad/name", "current_directory": "$CMUX_TEST_PROJECTS/unsafe", "ref": "workspace:7"}
+    {"title": "now-i-work-in-bad/name", "current_directory": "$CMUX_TEST_PROJECTS/unsafe", "ref": "workspace:7"},
+    {"title": "justn-is-always-around-here", "current_directory": "$CMUX_TEST_PROJECTS", "ref": "workspace:8"}
   ]
 }
 JSON
@@ -61,7 +63,7 @@ JSON
 fi
 
 case "${1:-}" in
-  new-workspace|close-workspace)
+  new-workspace|close-workspace|workspace-action)
     printf '%s\n' "$*" >> "$CMUX_FAKE_CALLS"
     ;;
   *)
@@ -75,6 +77,20 @@ export CMUX_FAKE_CALLS="$CALLS"
 export CMUX_TEST_PROJECTS="$PROJECTS"
 export C4J_ACTIVE_DIR="$ACTIVE"
 export C4J_CMUX_BIN="$FAKE_CMUX"
+
+output="$($CLI anchor --dry-run --name missing-anchor --cwd "$PROJECTS")"
+assert_contains "$output" "would-create-anchor	missing-anchor	$PROJECTS_RESOLVED"
+assert_contains "$output" "would-pin-anchor	missing-anchor"
+assert_contains "$output" "note	dry-run	apply with: c4j anchor --apply"
+[ ! -e "$CALLS" ] || fail "anchor dry-run should not call cmux"
+
+output="$($CLI anchor --apply --cwd "$PROJECTS")"
+assert_contains "$output" "skip existing-anchor	justn-is-always-around-here	workspace:8"
+assert_contains "$output" "pin-anchor	justn-is-always-around-here	workspace:8"
+assert_contains "$(cat "$CALLS")" "workspace-action --workspace workspace:8 --action pin"
+assert_contains "$(cat "$CALLS")" "workspace-action --workspace workspace:8 --action set-color --color Teal"
+assert_contains "$(cat "$CALLS")" "workspace-action --workspace workspace:8 --action set-description --description"
+rm -f "$CALLS"
 
 output="$($CLI sync --dry-run)"
 assert_contains "$output" "skip existing	@active/alpha"
@@ -317,7 +333,7 @@ assert_contains "$output" "download-source	file://$ROOT	$STDIN_BOOTSTRAP_INSTALL
 assert_contains "$output" "installed-bin	$STDIN_BOOTSTRAP_HOME/.local/bin/c4j"
 [ -x "$STDIN_BOOTSTRAP_HOME/.local/bin/c4j" ] || fail "stdin bootstrap install should create c4j executable"
 
-[ "$($CLI version)" = "0.9.0" ] || fail "version mismatch"
-[ "$("$ROOT/bin/cmux4justn" version)" = "0.9.0" ] || fail "legacy version mismatch"
+[ "$($CLI version)" = "0.10.0" ] || fail "version mismatch"
+[ "$("$ROOT/bin/cmux4justn" version)" = "0.10.0" ] || fail "legacy version mismatch"
 
 printf 'PASS cmux4justn tests\n'
