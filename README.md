@@ -4,7 +4,7 @@
 
 `c4j` is a macOS shell CLI for keeping active project symlinks and cmux workspaces in sync.
 
-It gives cmux users a small workspace manager for adding projects, listing active work, syncing workspace titles, importing legacy `now-i-work-in-*` workspaces, and keeping a pinned anchor workspace at `~/Workspaces`.
+It gives cmux users a small workspace manager for adding projects, listing active work, syncing workspace titles, and keeping a pinned anchor workspace at `~/Workspaces`.
 
 `c4j` is intentionally conservative: it creates missing symlinks and missing cmux workspaces, and only removes active symlinks or closes cmux workspaces when `c4j delete` is explicit.
 
@@ -12,15 +12,14 @@ It gives cmux users a small workspace manager for adding projects, listing activ
 
 - One-line macOS install with a plain Bash script.
 - Active project registry backed by symlinks in `~/.c4j/active`.
-- cmux workspace sync with configurable title prefixes such as `@active/` or `now-i-work-in-`.
-- Legacy `now-i-work-in-*` import for existing cmux workspace setups.
+- cmux workspace sync with configurable title prefixes such as `@active/`.
 - Pinned cmux anchor workspace support through `c4j anchor`.
 - Safe defaults: dry-run sync, explicit apply, and no real project directory deletion.
 
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.0/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.1/install.sh | bash
 ```
 
 The installer:
@@ -46,11 +45,11 @@ c4j add ~/Workspaces/repos/justn-hyeok/cmux4justn
 # Ensure the pinned cmux anchor workspace exists.
 c4j anchor
 
+# Set up the default @active/ prefix, optionally with a custom active registry.
+c4j setup --active-dir ~/Workspaces/now
+
 # Remove a project from the active registry and close its cmux workspace.
 c4j delete cmux4justn
-
-# Import legacy now-i-work-in-* cmux workspaces.
-c4j import-now --apply
 
 # List active projects.
 c4j list
@@ -59,7 +58,7 @@ c4j list
 c4j config set active-dir ~/Workspaces/now
 
 # Change the cmux workspace title prefix.
-c4j config set name-prefix "now-i-work-in-"
+c4j config set name-prefix "@active/"
 
 # Preview a full two-way sync.
 c4j sync --direction both --dry-run
@@ -112,16 +111,17 @@ Aliases:
 - `remove`
 - `rm`
 
-### `c4j import-now [--dry-run|--apply]`
+### `c4j setup [--dry-run|--apply] [--active-dir <path>] [--name-prefix <prefix>]`
 
-Imports legacy cmux workspaces named `now-i-work-in-*` into the active registry.
+Initializes the config with the default `@active/` workspace prefix.
 
-`import-now` defaults to `--dry-run`. It creates active symlinks only; it does not rename or close existing cmux workspaces.
+`setup` defaults to `--apply`. It writes `name_prefix=@active/` unless you pass a different `--name-prefix`, and it only writes `active_dir` when `--active-dir` is provided.
 
 ```bash
-c4j import-now
-c4j import-now --apply
-c4j import-now --legacy-prefix now-i-work-in-
+c4j setup
+c4j setup --dry-run
+c4j setup --active-dir ~/Workspaces/now
+c4j setup --name-prefix @active/
 ```
 
 ### `c4j sync [--dry-run|--apply] [--direction active-to-cmux|cmux-to-active|both]`
@@ -169,7 +169,7 @@ c4j config get
 Stores the prefix used for cmux workspace titles. The default is `@active/`.
 
 ```bash
-c4j config set name-prefix "now-i-work-in-"
+c4j config set name-prefix "@active/"
 c4j config set prefix "@active/"
 c4j config get
 ```
@@ -203,13 +203,13 @@ Prints the CLI version.
 
 ```bash
 # Install a specific release.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.0/install.sh | C4J_REF=v0.10.0 bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.1/install.sh | C4J_REF=v0.10.1 bash
 
 # Install from main instead of the release pinned by the bootstrap script.
 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash
 
 # Download source somewhere else.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.0/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.1/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
 
 # Preview all installer actions.
 scripts/install.sh --dry-run
@@ -223,7 +223,7 @@ scripts/install.sh --active-dir "$HOME/.c4j/active"
 # Use a custom config file.
 scripts/install.sh --config "$HOME/.c4j/config"
 
-# Add an alias fallback to a shell rc file.
+# Add alias and completion fallbacks to a shell rc file.
 scripts/install.sh --rc --shell-rc "$HOME/.zshrc"
 
 # Skip specific install steps.

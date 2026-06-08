@@ -14,6 +14,8 @@ UPDATE_RC=0
 DRY_RUN=0
 MARKER_START="# >>> c4j >>>"
 MARKER_END="# <<< c4j <<<"
+COMPLETION_MARKER_START="# >>> c4j completion >>>"
+COMPLETION_MARKER_END="# <<< c4j completion <<<"
 
 usage() {
   cat <<'USAGE'
@@ -33,7 +35,7 @@ Options:
   --no-active-dir  Skip active directory creation.
   --config PATH    Write config to PATH.
   --no-config      Skip config write.
-  --rc             Add an alias fallback to shell rc.
+  --rc             Add an alias and completion fallback to shell rc.
   --shell-rc PATH  Override shell rc file target.
   --no-rc          Skip shell rc update.
   --dry-run        Print planned changes only.
@@ -66,7 +68,7 @@ print_next_steps() {
     printf '  %s is not currently on PATH.\n' "$BIN_DIR"
     printf '  Add this to your shell rc, then open a new shell:\n'
     printf '    export PATH="%s:$%s"\n' "$BIN_DIR" "PATH"
-    printf '  Or reinstall with --rc to add an alias fallback.\n'
+    printf '  Or reinstall with --rc to add alias and completion fallbacks.\n'
   fi
 
   if [ "$UPDATE_RC" -eq 1 ]; then
@@ -148,6 +150,9 @@ done
 TARGET_CLI="$BIN_DIR/c4j"
 ALIAS_TARGET="$(printf '%q' "$TARGET_CLI")"
 ALIAS_LINE="alias c4j=$ALIAS_TARGET"
+ALIAS_LINE_QUOTED="alias c4j='$TARGET_CLI'"
+COMPLETION_SOURCE="$ROOT/completions/c4j.bash"
+COMPLETION_LINE="[ -f $(printf '%q' "$COMPLETION_SOURCE") ] && source $(printf '%q' "$COMPLETION_SOURCE")"
 
 if [ "$INSTALL_BIN" -eq 0 ] && [ "$UPDATE_RC" -eq 0 ] && [ "$CREATE_ACTIVE" -eq 0 ] && [ "$WRITE_CONFIG" -eq 0 ]; then
   fail "nothing to install; use --bin-dir or --rc"
@@ -179,6 +184,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
   if [ "$UPDATE_RC" -eq 1 ]; then
     printf 'would-update-rc\t%s\n' "$SHELL_RC"
     printf '%s\n%s\n%s\n' "$MARKER_START" "$ALIAS_LINE" "$MARKER_END"
+    printf '%s\n%s\n%s\n' "$COMPLETION_MARKER_START" "$COMPLETION_LINE" "$COMPLETION_MARKER_END"
   else
     printf 'would-skip-rc\n'
   fi
@@ -237,28 +243,47 @@ fi
 mkdir -p "$(dirname "$SHELL_RC")"
 touch "$SHELL_RC"
 
-if grep -F "$ALIAS_LINE" "$SHELL_RC" >/dev/null 2>&1; then
+alias_present=0
+completion_present=0
+if grep -F "$ALIAS_LINE" "$SHELL_RC" >/dev/null 2>&1 || grep -F "$ALIAS_LINE_QUOTED" "$SHELL_RC" >/dev/null 2>&1; then
+  alias_present=1
+fi
+if grep -F "$COMPLETION_MARKER_START" "$SHELL_RC" >/dev/null 2>&1; then
+  completion_present=1
+fi
+
+if [ "$alias_present" -eq 1 ] && [ "$completion_present" -eq 1 ]; then
   printf 'skip existing-alias\t%s\n' "$SHELL_RC"
   print_next_steps
   exit 0
 fi
 
 if grep -F "$MARKER_START" "$SHELL_RC" >/dev/null 2>&1; then
-  if grep -F "alias c4j='${TARGET_CLI}'" "$SHELL_RC" >/dev/null 2>&1; then
-    printf 'skip existing-alias\t%s\n' "$SHELL_RC"
-    print_next_steps
-    exit 0
+  if [ "$alias_present" -eq 0 ]; then
+    printf 'error: c4j marker exists but alias differs: %s\n' "$SHELL_RC" >&2
+    exit 1
   fi
-  printf 'error: c4j marker exists but alias differs: %s\n' "$SHELL_RC" >&2
-  exit 1
 fi
 
-{
-  printf '\n%s\n' "$MARKER_START"
-  printf '%s\n' "$ALIAS_LINE"
-  printf '%s\n' "$MARKER_END"
-} >> "$SHELL_RC"
+if [ "$alias_present" -eq 0 ]; then
+  {
+    printf '\n%s\n' "$MARKER_START"
+    printf '%s\n' "$ALIAS_LINE"
+    printf '%s\n' "$MARKER_END"
+  } >> "$SHELL_RC"
+  printf 'installed-rc\t%s\n' "$SHELL_RC"
+  printf 'alias\tc4j -> %s\n' "$TARGET_CLI"
+else
+  printf 'skip existing-alias\t%s\n' "$SHELL_RC"
+fi
 
-printf 'installed-rc\t%s\n' "$SHELL_RC"
-printf 'alias\tc4j -> %s\n' "$TARGET_CLI"
+if [ "$completion_present" -eq 0 ]; then
+  {
+    printf '\n%s\n' "$COMPLETION_MARKER_START"
+    printf '%s\n' "$COMPLETION_LINE"
+    printf '%s\n' "$COMPLETION_MARKER_END"
+  } >> "$SHELL_RC"
+  printf 'installed-completion\t%s\n' "$SHELL_RC"
+fi
+
 print_next_steps

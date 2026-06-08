@@ -53,8 +53,6 @@ if [ "${1:-}" = "--json" ] && [ "${2:-}" = "list-workspaces" ]; then
     {"title": "@active/gamma", "current_directory": "$CMUX_TEST_PROJECTS/gamma", "ref": "workspace:3"},
     {"title": "@active/bad/name", "current_directory": "$CMUX_TEST_PROJECTS/unsafe", "ref": "workspace:4"},
     {"title": "other", "current_directory": "$CMUX_TEST_PROJECTS/gamma", "ref": "workspace:5"},
-    {"title": "now-i-work-in-legacy", "current_directory": "$CMUX_TEST_PROJECTS/legacy", "ref": "workspace:6"},
-    {"title": "now-i-work-in-bad/name", "current_directory": "$CMUX_TEST_PROJECTS/unsafe", "ref": "workspace:7"},
     {"title": "justn-is-always-around-here", "current_directory": "$CMUX_TEST_PROJECTS", "ref": "workspace:8"}
   ]
 }
@@ -122,16 +120,6 @@ expected_delta="$(cd "$PROJECTS/delta" && pwd -P)"
 [ "$resolved" = "$expected_delta" ] || fail "delta symlink points to wrong target: $resolved"
 rm -f "$ACTIVE/gamma"
 
-output="$($CLI import-now --dry-run)"
-assert_contains "$output" "would-create-link	now-i-work-in-legacy	$ACTIVE/legacy"
-assert_contains "$output" "skip unsafe-name	now-i-work-in-bad/name"
-assert_contains "$output" "note	dry-run	apply with: c4j import-now --apply"
-[ ! -e "$ACTIVE/legacy" ] || fail "import-now dry-run should not create symlink"
-
-output="$($CLI import-now --apply)"
-assert_contains "$output" "create-link	now-i-work-in-legacy	$ACTIVE/legacy"
-[ -L "$ACTIVE/legacy" ] || fail "import-now apply should create symlink"
-
 output="$($CLI add --dry-run)"
 assert_contains "$output" "summary	mode=dry-run	direction=both"
 
@@ -194,6 +182,39 @@ output="$($CLI doctor)"
 assert_contains "$output" "active_dir"
 assert_contains "$output" "cmux_bin"
 
+SETUP_HOME="$TMPDIR/setup-home"
+SETUP_ACTIVE="$TMPDIR/setup-active"
+mkdir -p "$SETUP_HOME" "$SETUP_ACTIVE"
+SETUP_ACTIVE_RESOLVED="$(cd "$SETUP_ACTIVE" && pwd -P)"
+output="$(env -u C4J_ACTIVE_DIR -u CMUX4JUSTN_ACTIVE_DIR HOME="$SETUP_HOME" C4J_CMUX_BIN="$FAKE_CMUX" "$CLI" setup --dry-run --active-dir "$SETUP_ACTIVE")"
+assert_contains "$output" "would-set	name_prefix	@active/"
+assert_contains "$output" "would-set	active_dir	$SETUP_ACTIVE_RESOLVED"
+assert_contains "$output" "note	dry-run	apply with: c4j setup --active-dir $SETUP_ACTIVE --apply"
+[ ! -e "$SETUP_HOME/.c4j/config" ] || fail "setup dry-run should not write config"
+
+output="$(env -u C4J_ACTIVE_DIR -u CMUX4JUSTN_ACTIVE_DIR HOME="$SETUP_HOME" C4J_CMUX_BIN="$FAKE_CMUX" "$CLI" setup --active-dir "$SETUP_ACTIVE")"
+assert_contains "$output" "set	name_prefix	@active/"
+assert_contains "$output" "set	active_dir	$SETUP_ACTIVE_RESOLVED"
+output="$(env -u C4J_ACTIVE_DIR -u CMUX4JUSTN_ACTIVE_DIR HOME="$SETUP_HOME" C4J_CMUX_BIN="$FAKE_CMUX" "$CLI" config get)"
+assert_contains "$output" "name_prefix	@active/"
+assert_contains "$output" "active_dir	$SETUP_ACTIVE_RESOLVED"
+
+COMPLETION_ROOT="$TMPDIR/completion-root"
+mkdir -p "$COMPLETION_ROOT/alpha" "$COMPLETION_ROOT/beta"
+OLDPWD="$PWD"
+cd "$COMPLETION_ROOT"
+# shellcheck source=/dev/null
+source "$ROOT/completions/c4j.bash"
+COMP_WORDS=(c4j setup --active-dir "")
+COMP_CWORD=3
+_c4j_complete
+assert_contains "${COMPREPLY[*]}" "alpha"
+COMP_WORDS=(c4j add "")
+COMP_CWORD=2
+_c4j_complete
+assert_contains "${COMPREPLY[*]}" "beta"
+cd "$OLDPWD"
+
 INSTALL_RC="$TMPDIR/zshrc"
 INSTALL_BIN_DIR="$TMPDIR/bin"
 INSTALL_HOME="$TMPDIR/install-home"
@@ -220,11 +241,14 @@ install -m 0755 "$ROOT/bin/cmux4justn" "$INSTALL_BIN_DIR/c4j"
 install_output="$(run_install --shell-rc "$INSTALL_RC" --bin-dir "$INSTALL_BIN_DIR")"
 assert_contains "$install_output" "skip existing-bin	$INSTALL_BIN_DIR/c4j"
 assert_contains "$install_output" "skip existing-alias	$INSTALL_RC"
+assert_contains "$install_output" "installed-completion	$INSTALL_RC"
+assert_contains "$(cat "$INSTALL_RC")" "source $ROOT/completions/c4j.bash"
 rm -f "$INSTALL_RC" "$INSTALL_BIN_DIR/c4j"
 
 install_output="$(run_install --dry-run --shell-rc "$INSTALL_RC" --bin-dir "$INSTALL_BIN_DIR")"
 assert_contains "$install_output" "would-install-bin"
 assert_contains "$install_output" "would-update-rc	$INSTALL_RC"
+assert_contains "$install_output" "$ROOT/completions/c4j.bash"
 [ ! -e "$INSTALL_BIN_DIR/c4j" ] || fail "install dry-run should not create bin copy"
 
 install_output="$(run_install --dry-run --no-rc --bin-dir "$INSTALL_BIN_DIR")"
@@ -333,7 +357,7 @@ assert_contains "$output" "download-source	file://$ROOT	$STDIN_BOOTSTRAP_INSTALL
 assert_contains "$output" "installed-bin	$STDIN_BOOTSTRAP_HOME/.local/bin/c4j"
 [ -x "$STDIN_BOOTSTRAP_HOME/.local/bin/c4j" ] || fail "stdin bootstrap install should create c4j executable"
 
-[ "$($CLI version)" = "0.10.0" ] || fail "version mismatch"
-[ "$("$ROOT/bin/cmux4justn" version)" = "0.10.0" ] || fail "legacy version mismatch"
+[ "$($CLI version)" = "0.10.1" ] || fail "version mismatch"
+[ "$("$ROOT/bin/cmux4justn" version)" = "0.10.1" ] || fail "legacy version mismatch"
 
 printf 'PASS cmux4justn tests\n'

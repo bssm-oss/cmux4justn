@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.10.1 - 2026-06-08
+
+### Added
+
+- Added `c4j setup` for quickly initializing the default `@active/` workspace prefix.
+- Added shell completion for directory arguments and core command flags.
+
+### Changed
+
+- Removed the `import-now` command and folded reverse import behavior into `sync --direction cmux-to-active`.
+- Updated install and release references to the `v0.10.1` hotfix.
+
 ## v0.10.0 - 2026-06-08
 
 ### Added
@@ -10,7 +22,7 @@
 
 ### Changed
 
-- Added dry-run apply hints to `sync`, `import-now`, and `delete` output.
+- Added dry-run apply hints to `sync` and `delete` output.
 
 ## v0.8.0 - 2026-06-08
 
@@ -30,8 +42,7 @@
 
 ### Added
 
-- Added `c4j import-now` to import legacy `now-i-work-in-*` cmux workspaces into the active registry.
-- Added `--legacy-prefix` for importing non-default legacy workspace prefixes.
+- Added cmux-to-active sync for importing configured workspace prefixes.
 
 ## v0.5.0 - 2026-06-08
 

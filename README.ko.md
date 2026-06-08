@@ -4,7 +4,7 @@
 
 `c4j`는 active project symlink와 cmux 워크스페이스를 동기화하는 macOS shell CLI입니다.
 
-cmux 사용자가 프로젝트 추가, active 목록 확인, workspace title 동기화, legacy `now-i-work-in-*` 워크스페이스 가져오기, `~/Workspaces` pinned anchor workspace 관리를 작은 CLI 하나로 처리할 수 있게 합니다.
+cmux 사용자가 프로젝트 추가, active 목록 확인, workspace title 동기화, `~/Workspaces` pinned anchor workspace 관리를 작은 CLI 하나로 처리할 수 있게 합니다.
 
 `c4j`는 프로젝트 파일을 옮기지 않고, active registry에 symlink만 만들고, 필요한 cmux 워크스페이스만 생성합니다. 기본 동작은 보수적입니다. `c4j delete`를 명시적으로 실행할 때만 active symlink를 제거하거나 cmux 워크스페이스를 닫습니다.
 
@@ -12,15 +12,14 @@ cmux 사용자가 프로젝트 추가, active 목록 확인, workspace title 동
 
 - plain Bash script 기반 한 줄 macOS 설치
 - `~/.c4j/active` symlink 기반 active project registry
-- `@active/`, `now-i-work-in-` 같은 configurable title prefix로 cmux workspace sync
-- 기존 `now-i-work-in-*` cmux workspace import
+- `@active/` 같은 configurable title prefix로 cmux workspace sync
 - `c4j anchor`를 통한 pinned cmux anchor workspace 관리
 - 안전한 기본값: dry-run sync, 명시적 apply, 실제 프로젝트 디렉터리 삭제 없음
 
 ## 설치
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.0/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.1/install.sh | bash
 ```
 
 설치 스크립트는 기본적으로 다음 작업을 합니다.
@@ -46,11 +45,11 @@ c4j add ~/Workspaces/repos/justn-hyeok/cmux4justn
 # pinned cmux anchor workspace를 보장합니다.
 c4j anchor
 
+# 기본 @active/ prefix를 설정합니다. 필요하면 active registry 경로도 같이 넣습니다.
+c4j setup --active-dir ~/Workspaces/now
+
 # 프로젝트를 active registry에서 제거하고 cmux 워크스페이스도 닫습니다.
 c4j delete cmux4justn
-
-# legacy now-i-work-in-* cmux 워크스페이스를 가져옵니다.
-c4j import-now --apply
 
 # active 프로젝트 목록을 봅니다.
 c4j list
@@ -59,7 +58,7 @@ c4j list
 c4j config set active-dir ~/Workspaces/now
 
 # cmux 워크스페이스 title prefix를 바꿉니다.
-c4j config set name-prefix "now-i-work-in-"
+c4j config set name-prefix "@active/"
 
 # 양방향 동기화를 미리 확인합니다.
 c4j sync --direction both --dry-run
@@ -112,16 +111,17 @@ alias:
 - `remove`
 - `rm`
 
-### `c4j import-now [--dry-run|--apply]`
+### `c4j setup [--dry-run|--apply] [--active-dir <path>] [--name-prefix <prefix>]`
 
-legacy `now-i-work-in-*` cmux 워크스페이스를 active registry로 가져옵니다.
+기본 `@active/` workspace prefix를 설정합니다.
 
-`import-now`는 기본값이 `--dry-run`입니다. active symlink만 만들고 기존 cmux 워크스페이스 이름을 바꾸거나 닫지 않습니다.
+`setup`의 기본값은 `--apply`입니다. `--name-prefix`를 따로 주지 않으면 `name_prefix=@active/`를 저장하고, `--active-dir`를 넘겼을 때만 `active_dir`도 저장합니다.
 
 ```bash
-c4j import-now
-c4j import-now --apply
-c4j import-now --legacy-prefix now-i-work-in-
+c4j setup
+c4j setup --dry-run
+c4j setup --active-dir ~/Workspaces/now
+c4j setup --name-prefix @active/
 ```
 
 ### `c4j sync [--dry-run|--apply] [--direction active-to-cmux|cmux-to-active|both]`
@@ -169,7 +169,7 @@ c4j config get
 cmux 워크스페이스 title에 붙일 prefix를 config 파일에 저장합니다. 기본값은 `@active/`입니다.
 
 ```bash
-c4j config set name-prefix "now-i-work-in-"
+c4j config set name-prefix "@active/"
 c4j config set prefix "@active/"
 c4j config get
 ```
@@ -203,13 +203,13 @@ CLI 버전을 출력합니다.
 
 ```bash
 # 특정 릴리즈를 설치합니다.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.0/install.sh | C4J_REF=v0.10.0 bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.1/install.sh | C4J_REF=v0.10.1 bash
 
 # bootstrap script에 고정된 릴리즈 대신 main에서 설치합니다.
 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash
 
 # source 다운로드 위치를 바꿉니다.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.0/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.1/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
 
 # 설치 작업을 미리 확인합니다.
 scripts/install.sh --dry-run
@@ -223,7 +223,7 @@ scripts/install.sh --active-dir "$HOME/.c4j/active"
 # 다른 config 파일을 사용합니다.
 scripts/install.sh --config "$HOME/.c4j/config"
 
-# shell rc 파일에 alias fallback을 추가합니다.
+# shell rc 파일에 alias와 completion fallback을 추가합니다.
 scripts/install.sh --rc --shell-rc "$HOME/.zshrc"
 
 # 특정 설치 단계를 건너뜁니다.

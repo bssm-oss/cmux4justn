@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="0.10.0"
+VERSION="0.10.1"
 DEFAULT_ACTIVE_DIR="${HOME:-/Users/justn}/.c4j/active"
 DEFAULT_ANCHOR_DIR="${HOME:-/Users/justn}/Workspaces"
 CONFIG_FILE="${C4J_CONFIG:-${CMUX4JUSTN_CONFIG:-${HOME:-/Users/justn}/.c4j/config}}"
@@ -22,13 +22,13 @@ NAME_PREFIX="${C4J_NAME_PREFIX:-${CMUX4JUSTN_NAME_PREFIX:-${CONFIG_NAME_PREFIX:-
 
 usage() {
   cat <<'USAGE'
-c4j v0.10.0 - tiny active-project <-> cmux sync
+c4j v0.10.1 - tiny active-project <-> cmux sync
 
 Usage:
   c4j add [--dry-run|--apply] <path>...
   c4j anchor [--dry-run|--apply] [--name <title>] [--cwd <path>]
   c4j delete [--dry-run|--apply] [--keep-cmux] <name-or-path>...
-  c4j import-now [--dry-run|--apply]
+  c4j setup [--dry-run|--apply] [--active-dir <path>] [--name-prefix <prefix>]
   c4j sync [--dry-run|--apply] [--direction active-to-cmux|cmux-to-active|both]
   c4j list [--plain]
   c4j config get
@@ -44,7 +44,7 @@ Defaults:
   add  => --apply, then sync --direction both
   anchor => --apply, ensure a pinned cmux workspace at ~/Workspaces
   delete => --apply, remove active symlink and close matching cmux workspace
-  import-now => --dry-run, import legacy now-i-work-in-* cmux workspaces
+  setup => --apply, set name-prefix to @active/
   sync => --dry-run --direction active-to-cmux
 
 Environment:
@@ -293,6 +293,76 @@ cmd_config() {
       fail "unknown config command: $subcommand"
       ;;
   esac
+}
+
+cmd_setup() {
+  local mode="apply"
+  local active_dir=""
+  local name_prefix="@active/"
+  local active_dir_set=0
+  local name_prefix_set=0
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --dry-run)
+        mode="dry-run"
+        shift
+        ;;
+      --apply)
+        mode="apply"
+        shift
+        ;;
+      --active-dir)
+        [ "$#" -ge 2 ] || fail "--active-dir requires a path"
+        active_dir="$2"
+        active_dir_set=1
+        shift 2
+        ;;
+      --name-prefix|--prefix)
+        [ "$#" -ge 2 ] || fail "--name-prefix requires text"
+        name_prefix="$2"
+        name_prefix_set=1
+        shift 2
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        fail "unknown setup option: $1"
+        ;;
+    esac
+  done
+
+  local resolved_name_prefix resolved_active_dir=""
+  resolved_name_prefix="$(config_value_for_field name-prefix "$name_prefix")" || fail "invalid value for name-prefix: $name_prefix"
+  if [ -n "$active_dir" ]; then
+    resolved_active_dir="$(config_value_for_field active-dir "$active_dir")" || fail "invalid value for active-dir: $active_dir"
+  fi
+
+  if [ "$mode" = "dry-run" ]; then
+    printf 'would-set\tname_prefix\t%s\n' "$resolved_name_prefix"
+    if [ -n "$active_dir" ]; then
+      printf 'would-set\tactive_dir\t%s\n' "$resolved_active_dir"
+    fi
+    local hint_args=()
+    if [ "$active_dir_set" -eq 1 ]; then
+      hint_args+=(--active-dir "$active_dir")
+    fi
+    if [ "$name_prefix_set" -eq 1 ]; then
+      hint_args+=(--name-prefix "$name_prefix")
+    fi
+    print_apply_hint setup "${hint_args[@]}"
+    return
+  fi
+
+  config_write_value name_prefix "$resolved_name_prefix"
+  printf 'set\tname_prefix\t%s\n' "$resolved_name_prefix"
+
+  if [ -n "$active_dir" ]; then
+    config_write_value active_dir "$resolved_active_dir"
+    printf 'set\tactive_dir\t%s\n' "$resolved_active_dir"
+  fi
 }
 
 cmd_add() {
@@ -641,56 +711,6 @@ cmd_delete() {
   fi
 }
 
-cmd_import_now() {
-  local mode="dry-run"
-  local cmux_bin
-  local legacy_prefix="now-i-work-in-"
-  local previous_apply_hint="${C4J_APPLY_HINT_COMMAND:-}"
-  cmux_bin="$(find_cmux)"
-
-  while [ "$#" -gt 0 ]; do
-    case "$1" in
-      --dry-run)
-        mode="dry-run"
-        shift
-        ;;
-      --apply)
-        mode="apply"
-        shift
-        ;;
-      --active-dir)
-        [ "$#" -ge 2 ] || fail "--active-dir requires a path"
-        ACTIVE_DIR="$2"
-        shift 2
-        ;;
-      --cmux)
-        [ "$#" -ge 2 ] || fail "--cmux requires a path"
-        cmux_bin="$2"
-        shift 2
-        ;;
-      --legacy-prefix)
-        [ "$#" -ge 2 ] || fail "--legacy-prefix requires text"
-        legacy_prefix="$2"
-        shift 2
-        ;;
-      -h|--help)
-        usage
-        exit 0
-        ;;
-      *)
-        fail "unknown import-now option: $1"
-        ;;
-    esac
-  done
-
-  C4J_APPLY_HINT_COMMAND="import-now" cmd_sync --direction cmux-to-active "--$mode" --name-prefix "$legacy_prefix" --cmux "$cmux_bin" --active-dir "$ACTIVE_DIR"
-  if [ -n "$previous_apply_hint" ]; then
-    C4J_APPLY_HINT_COMMAND="$previous_apply_hint"
-  else
-    unset C4J_APPLY_HINT_COMMAND
-  fi
-}
-
 cmd_sync() {
   local mode="dry-run"
   local direction="active-to-cmux"
@@ -953,9 +973,9 @@ main() {
       shift
       cmd_delete "$@"
       ;;
-    import-now)
+    setup)
       shift
-      cmd_import_now "$@"
+      cmd_setup "$@"
       ;;
     sync)
       shift
