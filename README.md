@@ -20,7 +20,7 @@ It gives cmux users a small workspace manager for adding projects, listing activ
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.11.1/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.11.2/install.sh | bash
 ```
 
 The installer:
@@ -121,6 +121,7 @@ The first positional argument is the worktree name, so `c4j wt for-feature1` is 
 The default worktree name is `<repo>-<branch>`. If that name already exists, `c4j` appends `-2`, `-3`, and so on. Pass `--name` to override the worktree name directly.
 
 `worktree` defaults to `--apply`. `wt`, `pane`, and `make-pane` are aliases.
+When you use the shell wrapper installed by `scripts/install.sh`, a successful `c4j wt ...` also changes the current shell directory to the created or reused worktree.
 
 ```bash
 c4j worktree
@@ -222,13 +223,13 @@ Prints the CLI version.
 
 ```bash
 # Install a specific release.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.11.1/install.sh | C4J_REF=v0.11.1 bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.11.2/install.sh | C4J_REF=v0.11.2 bash
 
 # Install from main instead of the release pinned by the bootstrap script.
 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash
 
 # Download source somewhere else.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.11.1/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.11.2/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
 
 # Preview all installer actions.
 scripts/install.sh --dry-run

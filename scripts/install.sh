@@ -35,7 +35,7 @@ Options:
   --no-active-dir  Skip active directory creation.
   --config PATH    Write config to PATH.
   --no-config      Skip config write.
-  --rc             Add an alias and completion fallback to shell rc.
+  --rc             Add a shell wrapper and completion fallback to shell rc.
   --shell-rc PATH  Override shell rc file target.
   --no-rc          Skip shell rc update.
   --dry-run        Print planned changes only.
@@ -68,7 +68,7 @@ print_next_steps() {
     printf '  %s is not currently on PATH.\n' "$BIN_DIR"
     printf '  Add this to your shell rc, then open a new shell:\n'
     printf '    export PATH="%s:$%s"\n' "$BIN_DIR" "PATH"
-    printf '  Or reinstall with --rc to add alias and completion fallbacks.\n'
+    printf '  Or reinstall with --rc to add the shell wrapper and completion fallbacks.\n'
   fi
 
   if [ "$UPDATE_RC" -eq 1 ]; then
@@ -84,6 +84,35 @@ print_next_steps() {
   else
     printf '  %s doctor\n' "$TARGET_CLI"
   fi
+}
+
+write_wrapper_block() {
+  local shell_rc="$1"
+  local wrapper_file tmp_file
+  wrapper_file="$(mktemp)"
+  tmp_file="$(mktemp)"
+  printf '%s\n' "$WRAPPER_FUNCTION" > "$wrapper_file"
+  awk -v start="$MARKER_START" -v end="$MARKER_END" -v wrapper_file="$wrapper_file" '
+    BEGIN { in_block = 0 }
+    $0 == start {
+      print
+      while ((getline line < wrapper_file) > 0) {
+        print line
+      }
+      close(wrapper_file)
+      in_block = 1
+      next
+    }
+    in_block && $0 == end {
+      print
+      in_block = 0
+      next
+    }
+    in_block { next }
+    { print }
+  ' "$shell_rc" > "$tmp_file"
+  mv "$tmp_file" "$shell_rc"
+  rm -f "$wrapper_file"
 }
 
 while [ "$#" -gt 0 ]; do
@@ -148,9 +177,23 @@ while [ "$#" -gt 0 ]; do
 done
 
 TARGET_CLI="$BIN_DIR/c4j"
-ALIAS_TARGET="$(printf '%q' "$TARGET_CLI")"
-ALIAS_LINE="alias c4j=$ALIAS_TARGET"
-ALIAS_LINE_QUOTED="alias c4j='$TARGET_CLI'"
+WRAPPER_FUNCTION="c4j() {
+  local c4j_output c4j_status c4j_worktree_path
+  c4j_output=\"\$($TARGET_CLI \"\$@\" 2>&1)\"
+  c4j_status=\$?
+  printf '%s\n' \"\$c4j_output\"
+  if [ \"\$c4j_status\" -ne 0 ]; then
+    return \"\$c4j_status\"
+  fi
+  case \"\${1:-}\" in
+    worktree|wt|pane|make-pane)
+      c4j_worktree_path=\$(printf '%s\n' \"\$c4j_output\" | awk -F '\\t' '(\$1 == \"create-worktree\" || \$1 == \"reuse-worktree\") { print \$3; exit }')
+      if [ -n \"\$c4j_worktree_path\" ] && [ -d \"\$c4j_worktree_path\" ]; then
+        builtin cd -- \"\$c4j_worktree_path\"
+      fi
+      ;;
+  esac
+}"
 COMPLETION_SOURCE="$ROOT/completions/c4j.bash"
 COMPLETION_LINE="[ -f $(printf '%q' "$COMPLETION_SOURCE") ] && source $(printf '%q' "$COMPLETION_SOURCE")"
 
@@ -183,7 +226,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
 
   if [ "$UPDATE_RC" -eq 1 ]; then
     printf 'would-update-rc\t%s\n' "$SHELL_RC"
-    printf '%s\n%s\n%s\n' "$MARKER_START" "$ALIAS_LINE" "$MARKER_END"
+    printf '%s\n%s\n%s\n' "$MARKER_START" "$WRAPPER_FUNCTION" "$MARKER_END"
     printf '%s\n%s\n%s\n' "$COMPLETION_MARKER_START" "$COMPLETION_LINE" "$COMPLETION_MARKER_END"
   else
     printf 'would-skip-rc\n'
@@ -244,37 +287,43 @@ mkdir -p "$(dirname "$SHELL_RC")"
 touch "$SHELL_RC"
 
 alias_present=0
+wrapper_present=0
 completion_present=0
-if grep -F "$ALIAS_LINE" "$SHELL_RC" >/dev/null 2>&1 || grep -F "$ALIAS_LINE_QUOTED" "$SHELL_RC" >/dev/null 2>&1; then
+if grep -F "alias c4j=" "$SHELL_RC" >/dev/null 2>&1; then
   alias_present=1
+fi
+if grep -F "$MARKER_START" "$SHELL_RC" >/dev/null 2>&1 && grep -F "builtin cd --" "$SHELL_RC" >/dev/null 2>&1; then
+  wrapper_present=1
 fi
 if grep -F "$COMPLETION_MARKER_START" "$SHELL_RC" >/dev/null 2>&1; then
   completion_present=1
 fi
 
-if [ "$alias_present" -eq 1 ] && [ "$completion_present" -eq 1 ]; then
-  printf 'skip existing-alias\t%s\n' "$SHELL_RC"
+if [ "$wrapper_present" -eq 1 ] && [ "$completion_present" -eq 1 ]; then
+  printf 'skip existing-rc\t%s\n' "$SHELL_RC"
   print_next_steps
   exit 0
 fi
 
 if grep -F "$MARKER_START" "$SHELL_RC" >/dev/null 2>&1; then
-  if [ "$alias_present" -eq 0 ]; then
-    printf 'error: c4j marker exists but alias differs: %s\n' "$SHELL_RC" >&2
+  if [ "$wrapper_present" -eq 0 ] && [ "$alias_present" -eq 1 ]; then
+    write_wrapper_block "$SHELL_RC"
+    wrapper_present=1
+    printf 'updated-rc\t%s\n' "$SHELL_RC"
+  elif [ "$wrapper_present" -eq 0 ]; then
+    printf 'error: c4j marker exists but wrapper differs: %s\n' "$SHELL_RC" >&2
     exit 1
   fi
 fi
 
-if [ "$alias_present" -eq 0 ]; then
+if [ "$wrapper_present" -eq 0 ]; then
   {
     printf '\n%s\n' "$MARKER_START"
-    printf '%s\n' "$ALIAS_LINE"
+    printf '%s\n' "$WRAPPER_FUNCTION"
     printf '%s\n' "$MARKER_END"
   } >> "$SHELL_RC"
   printf 'installed-rc\t%s\n' "$SHELL_RC"
-  printf 'alias\tc4j -> %s\n' "$TARGET_CLI"
-else
-  printf 'skip existing-alias\t%s\n' "$SHELL_RC"
+  printf 'wrapper\tc4j -> %s\n' "$TARGET_CLI"
 fi
 
 if [ "$completion_present" -eq 0 ]; then

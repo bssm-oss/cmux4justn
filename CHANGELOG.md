@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.11.2 - 2026-06-10
+
+### Fixed
+
+- Made the installed shell wrapper change into the created or reused worktree after `c4j wt ...`.
+
 ## v0.11.1 - 2026-06-10
 
 ### Fixed

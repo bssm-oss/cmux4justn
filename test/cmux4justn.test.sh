@@ -182,6 +182,12 @@ assert_contains "$output" "create-worktree	for-feature1	$WORKTREE_ROOT_RESOLVED/
 [ -d "$WORKTREE_ROOT_RESOLVED/for-feature1" ] || fail "positional wt should create explicit worktree"
 cd "$WORKTREE_OLDPWD"
 
+INSTALL_RC="$TMPDIR/zshrc"
+output="$(env HOME="$TMPDIR/home" bash "$ROOT/scripts/install.sh" --dry-run --no-bin --no-active-dir --no-config --rc --shell-rc "$INSTALL_RC")"
+assert_contains "$output" "would-update-rc	$INSTALL_RC"
+assert_contains "$output" "c4j()"
+assert_contains "$output" "builtin cd --"
+
 output="$($CLI sync --direction cmux-to-active --dry-run)"
 assert_contains "$output" "skip existing-link	@active/alpha"
 assert_contains "$output" "would-create-link	@active/delta"
@@ -316,8 +322,10 @@ mkdir -p "$INSTALL_BIN_DIR"
 install -m 0755 "$ROOT/bin/cmux4justn" "$INSTALL_BIN_DIR/c4j"
 install_output="$(run_install --shell-rc "$INSTALL_RC" --bin-dir "$INSTALL_BIN_DIR")"
 assert_contains "$install_output" "skip existing-bin	$INSTALL_BIN_DIR/c4j"
-assert_contains "$install_output" "skip existing-alias	$INSTALL_RC"
+assert_contains "$install_output" "updated-rc	$INSTALL_RC"
 assert_contains "$install_output" "installed-completion	$INSTALL_RC"
+assert_contains "$(cat "$INSTALL_RC")" "c4j()"
+assert_contains "$(cat "$INSTALL_RC")" "builtin cd --"
 assert_contains "$(cat "$INSTALL_RC")" "source $ROOT/completions/c4j.bash"
 rm -f "$INSTALL_RC" "$INSTALL_BIN_DIR/c4j"
 
@@ -433,7 +441,7 @@ assert_contains "$output" "download-source	file://$ROOT	$STDIN_BOOTSTRAP_INSTALL
 assert_contains "$output" "installed-bin	$STDIN_BOOTSTRAP_HOME/.local/bin/c4j"
 [ -x "$STDIN_BOOTSTRAP_HOME/.local/bin/c4j" ] || fail "stdin bootstrap install should create c4j executable"
 
-[ "$($CLI version)" = "0.11.1" ] || fail "version mismatch"
-[ "$("$ROOT/bin/cmux4justn" version)" = "0.11.1" ] || fail "legacy version mismatch"
+[ "$($CLI version)" = "0.11.2" ] || fail "version mismatch"
+[ "$("$ROOT/bin/cmux4justn" version)" = "0.11.2" ] || fail "legacy version mismatch"
 
 printf 'PASS cmux4justn tests\n'

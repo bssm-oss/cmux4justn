@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="0.11.1"
+VERSION="0.11.2"
 DEFAULT_ACTIVE_DIR="${HOME:-/Users/justn}/.c4j/active"
 DEFAULT_ANCHOR_DIR="${HOME:-/Users/justn}/Workspaces"
 DEFAULT_WORKTREE_DIR="${HOME:-/Users/justn}/Workspaces/worktrees"
@@ -24,7 +24,7 @@ WORKTREE_DIR="${C4J_WORKTREE_DIR:-${CMUX4JUSTN_WORKTREE_DIR:-$DEFAULT_WORKTREE_D
 
 usage() {
   cat <<'USAGE'
-c4j v0.11.1 - tiny active-project <-> cmux sync
+c4j v0.11.2 - tiny active-project <-> cmux sync
 
 Usage:
   c4j add [--dry-run|--apply] <path>...
