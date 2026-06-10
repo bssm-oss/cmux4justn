@@ -20,7 +20,7 @@ It gives cmux users a small workspace manager for adding projects, listing activ
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.11.0/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.11.1/install.sh | bash
 ```
 
 The installer:
@@ -115,7 +115,7 @@ Aliases:
 ### `c4j worktree [--dry-run|--apply] [--repo <path>] [--name <name>]`
 
 Creates a git worktree for the current repo under `~/Workspaces/worktrees`, mirroring the canonical repo path under `~/Workspaces/repos`.
-If you run it from inside the repo you want to branch off, it uses that current working directory as the source repo. Pass `--repo` to override the source path.
+If you run it from inside the repo you want to branch off, it uses that current working directory as the source repo. If that directory is not a git repo but you are inside cmux, it falls back to the current cmux workspace's repo. Pass `--repo` to override the source path.
 The first positional argument is the worktree name, so `c4j wt for-feature1` is the normal shorthand.
 
 The default worktree name is `<repo>-<branch>`. If that name already exists, `c4j` appends `-2`, `-3`, and so on. Pass `--name` to override the worktree name directly.
@@ -222,13 +222,13 @@ Prints the CLI version.
 
 ```bash
 # Install a specific release.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.11.0/install.sh | C4J_REF=v0.11.0 bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.11.1/install.sh | C4J_REF=v0.11.1 bash
 
 # Install from main instead of the release pinned by the bootstrap script.
 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash
 
 # Download source somewhere else.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.11.0/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.11.1/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
 
 # Preview all installer actions.
 scripts/install.sh --dry-run

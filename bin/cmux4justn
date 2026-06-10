@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="0.11.0"
+VERSION="0.11.1"
 DEFAULT_ACTIVE_DIR="${HOME:-/Users/justn}/.c4j/active"
 DEFAULT_ANCHOR_DIR="${HOME:-/Users/justn}/Workspaces"
 DEFAULT_WORKTREE_DIR="${HOME:-/Users/justn}/Workspaces/worktrees"
@@ -24,7 +24,7 @@ WORKTREE_DIR="${C4J_WORKTREE_DIR:-${CMUX4JUSTN_WORKTREE_DIR:-$DEFAULT_WORKTREE_D
 
 usage() {
   cat <<'USAGE'
-c4j v0.11.0 - tiny active-project <-> cmux sync
+c4j v0.11.1 - tiny active-project <-> cmux sync
 
 Usage:
   c4j add [--dry-run|--apply] <path>...
@@ -47,7 +47,7 @@ Defaults:
   add  => --apply, then sync --direction both
   anchor => --apply, ensure a pinned cmux workspace at ~/Workspaces
   delete => --apply, remove active symlink and close matching cmux workspace
-  worktree => --apply, create a git worktree for the current repo
+  worktree => --apply, create a git worktree for the current repo or cmux workspace
   setup => --apply, set name-prefix to @active/
   sync => --dry-run --direction active-to-cmux
 
@@ -232,6 +232,59 @@ PY
   rm -f "$parsed_file"
 
   return 1
+}
+
+cmux_workspace_directory() {
+  local cmux_bin="$1"
+
+  cmux_available "$cmux_bin" || return 1
+
+  local identify_json inventory_file workspace_ref
+  identify_json="$("$cmux_bin" identify --json 2>/dev/null)" || return 1
+
+  if command -v python3 >/dev/null 2>&1; then
+    if ! workspace_ref="$(IDENTIFY_JSON="$identify_json" python3 - <<'PY'
+import json
+import os
+import sys
+
+data = json.loads(os.environ["IDENTIFY_JSON"])
+for key in ("caller", "focused"):
+    block = data.get(key, {})
+    ref = block.get("workspace_ref")
+    if isinstance(ref, str) and ref and not any(ch in ref for ch in "\t\r\n"):
+        print(ref)
+        sys.exit(0)
+sys.exit(1)
+PY
+    )"; then
+      return 1
+    fi
+  elif command -v jq >/dev/null 2>&1; then
+    workspace_ref="$(printf '%s\n' "$identify_json" | jq -r '.caller.workspace_ref // .focused.workspace_ref // empty')"
+  else
+    return 1
+  fi
+
+  [ -n "$workspace_ref" ] || return 1
+
+  inventory_file="$(mktemp)"
+  if ! load_cmux_inventory "$cmux_bin" "$inventory_file"; then
+    rm -f "$inventory_file"
+    return 1
+  fi
+
+  awk -F '\t' -v ref="$workspace_ref" '
+    $3 == ref {
+      print $2
+      found = 1
+      exit
+    }
+    END { exit found ? 0 : 1 }
+  ' "$inventory_file"
+  local status=$?
+  rm -f "$inventory_file"
+  return "$status"
 }
 
 workspace_title_exists() {
@@ -1017,6 +1070,15 @@ cmd_worktree() {
 
   if [ -z "$repo_path" ]; then
     repo_path="$PWD"
+    if ! git -C "$repo_path" rev-parse --show-toplevel >/dev/null 2>&1; then
+      local cmux_bin current_workspace_dir
+      cmux_bin="$(find_cmux)"
+      if current_workspace_dir="$(cmux_workspace_directory "$cmux_bin" 2>/dev/null || true)"; then
+        if [ -n "$current_workspace_dir" ] && git -C "$current_workspace_dir" rev-parse --show-toplevel >/dev/null 2>&1; then
+          repo_path="$current_workspace_dir"
+        fi
+      fi
+    fi
   fi
 
   repo_path="$(resolve_dir "$repo_path")" || fail "git repo not found: $repo_path"

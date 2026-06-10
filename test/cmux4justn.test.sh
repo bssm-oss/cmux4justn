@@ -75,6 +75,7 @@ if [ "${1:-}" = "--json" ] && [ "${2:-}" = "list-workspaces" ]; then
     {"title": "@active/alpha", "current_directory": "$CMUX_TEST_PROJECTS/alpha", "ref": "workspace:1"},
     {"title": "@active/delta", "current_directory": "$CMUX_TEST_PROJECTS/delta", "ref": "workspace:2"},
     {"title": "@active/gamma", "current_directory": "$CMUX_TEST_PROJECTS/gamma", "ref": "workspace:3"},
+    {"title": "now-i-work-in-cmux4justn", "current_directory": "${WORKTREE_REPO:-}", "ref": "workspace:7"},
     {"title": "@active/bad/name", "current_directory": "$CMUX_TEST_PROJECTS/unsafe", "ref": "workspace:4"},
     {"title": "other", "current_directory": "$CMUX_TEST_PROJECTS/gamma", "ref": "workspace:5"},
     {"title": "justn-is-always-around-here", "current_directory": "$CMUX_TEST_PROJECTS", "ref": "workspace:8"}
@@ -139,9 +140,18 @@ git -C "$WORKTREE_REPO" config user.email "test@example.com"
 printf 'hello\n' > "$WORKTREE_REPO/README.md"
 git -C "$WORKTREE_REPO" add README.md
 git -C "$WORKTREE_REPO" commit -m "init" >/dev/null
+export WORKTREE_REPO
 WORKTREE_HOME_RESOLVED="$(cd "$TMPDIR/home" && pwd -P)"
 WORKTREE_ROOT_RESOLVED="$WORKTREE_HOME_RESOLVED/Workspaces/worktrees/bssm-oss/main/justn-hyeok/cmux4justn"
+CMUX_WORKSPACE_ROOT="$TMPDIR/cmux-workspace"
+mkdir -p "$CMUX_WORKSPACE_ROOT"
 WORKTREE_OLDPWD="$PWD"
+cd "$CMUX_WORKSPACE_ROOT"
+
+output="$($CLI wt feature-from-cmux --dry-run)"
+assert_contains "$output" "would-create-worktree	feature-from-cmux	$WORKTREE_ROOT_RESOLVED/feature-from-cmux	worktree/feature-from-cmux"
+[ ! -e "$WORKTREE_ROOT_RESOLVED/feature-from-cmux" ] || fail "cmux workspace dry-run should not create worktree"
+
 cd "$WORKTREE_REPO"
 
 output="$($CLI worktree --dry-run)"
@@ -423,7 +433,7 @@ assert_contains "$output" "download-source	file://$ROOT	$STDIN_BOOTSTRAP_INSTALL
 assert_contains "$output" "installed-bin	$STDIN_BOOTSTRAP_HOME/.local/bin/c4j"
 [ -x "$STDIN_BOOTSTRAP_HOME/.local/bin/c4j" ] || fail "stdin bootstrap install should create c4j executable"
 
-[ "$($CLI version)" = "0.11.0" ] || fail "version mismatch"
-[ "$("$ROOT/bin/cmux4justn" version)" = "0.11.0" ] || fail "legacy version mismatch"
+[ "$($CLI version)" = "0.11.1" ] || fail "version mismatch"
+[ "$("$ROOT/bin/cmux4justn" version)" = "0.11.1" ] || fail "legacy version mismatch"
 
 printf 'PASS cmux4justn tests\n'

@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.11.1 - 2026-06-10
+
+### Fixed
+
+- Made `c4j worktree` fall back to the current cmux workspace's repo when the current directory is not a git repo.
+
 ## v0.11.0 - 2026-06-10
 
 ### Added
