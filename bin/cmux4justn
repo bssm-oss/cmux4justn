@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="0.11.2"
+VERSION="0.12.0"
 DEFAULT_ACTIVE_DIR="${HOME:-/Users/justn}/.c4j/active"
 DEFAULT_ANCHOR_DIR="${HOME:-/Users/justn}/Workspaces"
 DEFAULT_WORKTREE_DIR="${HOME:-/Users/justn}/Workspaces/worktrees"
@@ -24,13 +24,16 @@ WORKTREE_DIR="${C4J_WORKTREE_DIR:-${CMUX4JUSTN_WORKTREE_DIR:-$DEFAULT_WORKTREE_D
 
 usage() {
   cat <<'USAGE'
-c4j v0.11.2 - tiny active-project <-> cmux sync
+c4j v0.12.0 - tiny active-project <-> cmux sync
 
 Usage:
   c4j add [--dry-run|--apply] <path>...
   c4j anchor [--dry-run|--apply] [--name <title>] [--cwd <path>]
   c4j delete [--dry-run|--apply] [--keep-cmux] <name-or-path>...
   c4j worktree [--dry-run|--apply] [--repo <path>] [<name>]
+  c4j worktree list [--repo <path>] [--plain]
+  c4j worktree delete [--dry-run|--apply] [--repo <path>] [<name-or-path>]
+  c4j worktree update [--dry-run|--apply] [--repo <path>] [<name-or-path>]
   c4j setup [--dry-run|--apply] [--active-dir <path>] [--name-prefix <prefix>]
   c4j sync [--dry-run|--apply] [--direction active-to-cmux|cmux-to-active|both]
   c4j list [--plain]
@@ -48,6 +51,9 @@ Defaults:
   anchor => --apply, ensure a pinned cmux workspace at ~/Workspaces
   delete => --apply, remove active symlink and close matching cmux workspace
   worktree => --apply, create a git worktree for the current repo or cmux workspace
+  worktree list => --plain, show worktrees for the current cmux workspace or all managed repos
+  worktree delete => --apply, remove the targeted worktree
+  worktree update => --apply, pull the targeted worktree forward with --ff-only
   setup => --apply, set name-prefix to @active/
   sync => --dry-run --direction active-to-cmux
 
@@ -285,6 +291,225 @@ PY
   local status=$?
   rm -f "$inventory_file"
   return "$status"
+}
+
+worktree_repo_root_for_path() {
+  local path="$1"
+
+  git -C "$path" rev-parse --show-toplevel 2>/dev/null || return 1
+}
+
+worktree_repo_root_from_cmux() {
+  local cmux_bin="$1" workspace_dir repo_root
+
+  workspace_dir="$(cmux_workspace_directory "$cmux_bin" 2>/dev/null || true)"
+  [ -n "$workspace_dir" ] || return 1
+  repo_root="$(worktree_repo_root_for_path "$workspace_dir" 2>/dev/null || true)"
+  [ -n "$repo_root" ] || return 1
+  printf '%s\n' "$repo_root"
+}
+
+discover_worktree_repo_roots() {
+  local output_file="$1"
+  local repos_root="${HOME:-/Users/justn}/Workspaces/repos"
+  local worktree_root="${WORKTREE_DIR%/}"
+  local gitdir worktree_dir repo_root
+
+  : > "$output_file"
+
+  if [ -d "$repos_root" ]; then
+    while IFS= read -r gitdir; do
+      [ -n "$gitdir" ] || continue
+      dirname "$gitdir" >> "$output_file"
+    done < <(find "$repos_root" -type d -name .git -print 2>/dev/null)
+  fi
+
+  if [ -d "$worktree_root" ]; then
+    while IFS= read -r -d '' gitdir; do
+      worktree_dir="$(dirname "$gitdir")"
+      repo_root="$(canonical_git_root "$worktree_dir" 2>/dev/null || true)"
+      [ -n "$repo_root" ] || continue
+      printf '%s\n' "$repo_root" >> "$output_file"
+    done < <(find "$worktree_root" -type f -name .git -print0 2>/dev/null)
+  fi
+
+  sort -u "$output_file" -o "$output_file"
+}
+
+collect_worktree_rows() {
+  local rows_file="$1"
+  local scope_repo_root="${2:-}"
+  local roots_file
+
+  : > "$rows_file"
+  roots_file="$(mktemp)"
+
+  if [ -n "$scope_repo_root" ]; then
+    printf '%s\n' "$scope_repo_root" > "$roots_file"
+  else
+    discover_worktree_repo_roots "$roots_file"
+  fi
+
+  local repo_root
+  while IFS= read -r repo_root; do
+    [ -n "$repo_root" ] || continue
+    [ -d "$repo_root" ] || continue
+    append_worktree_rows_for_repo_root "$repo_root" "$rows_file"
+  done < "$roots_file"
+
+  sort -t "$(printf '\t')" -k1,1 -k2,2 -k3,3 "$rows_file" -o "$rows_file"
+  rm -f "$roots_file"
+}
+
+append_worktree_rows_for_repo_root() {
+  local repo_root="$1"
+  local rows_file="$2"
+  local repo_name current_path current_branch line name branch_display
+
+  repo_name="$(basename "$repo_root")"
+  current_path=""
+  current_branch=""
+
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      worktree\ *)
+        if [ -n "$current_path" ]; then
+          name="$(basename "$current_path")"
+          if [ "$current_path" = "$repo_root" ]; then
+            name="$repo_name"
+          fi
+          branch_display="${current_branch:-detached}"
+          printf '%s\t%s\t%s\t%s\t%s\n' "$repo_root" "$repo_name" "$name" "$current_path" "$branch_display" >> "$rows_file"
+        fi
+        current_path="${line#worktree }"
+        current_branch=""
+        ;;
+      branch\ *)
+        current_branch="${line#branch refs/heads/}"
+        ;;
+      detached)
+        current_branch="detached"
+        ;;
+      "")
+        if [ -n "$current_path" ]; then
+          name="$(basename "$current_path")"
+          if [ "$current_path" = "$repo_root" ]; then
+            name="$repo_name"
+          fi
+          branch_display="${current_branch:-detached}"
+          printf '%s\t%s\t%s\t%s\t%s\n' "$repo_root" "$repo_name" "$name" "$current_path" "$branch_display" >> "$rows_file"
+          current_path=""
+          current_branch=""
+        fi
+        ;;
+    esac
+  done < <(git -C "$repo_root" worktree list --porcelain 2>/dev/null || true)
+
+  if [ -n "$current_path" ]; then
+    name="$(basename "$current_path")"
+    if [ "$current_path" = "$repo_root" ]; then
+      name="$repo_name"
+    fi
+    branch_display="${current_branch:-detached}"
+    printf '%s\t%s\t%s\t%s\t%s\n' "$repo_root" "$repo_name" "$name" "$current_path" "$branch_display" >> "$rows_file"
+  fi
+}
+
+worktree_render_rows() {
+  local rows_file="$1"
+  local mode="${2:-table}"
+  local repo_width name_width path_width branch_width
+
+  if [ ! -s "$rows_file" ]; then
+    printf 'No worktrees found.\n'
+    return 0
+  fi
+
+  if [ "$mode" = "plain" ]; then
+    cat "$rows_file"
+    return 0
+  fi
+
+  repo_width="$(awk -F '\t' 'BEGIN { max = length("REPO") } { if (length($2) > max) max = length($2) } END { print max }' "$rows_file")"
+  name_width="$(awk -F '\t' 'BEGIN { max = length("WORKTREE") } { if (length($3) > max) max = length($3) } END { print max }' "$rows_file")"
+  path_width="$(awk -F '\t' 'BEGIN { max = length("PATH") } { if (length($4) > max) max = length($4) } END { print max }' "$rows_file")"
+  branch_width="$(awk -F '\t' 'BEGIN { max = length("BRANCH") } { if (length($5) > max) max = length($5) } END { print max }' "$rows_file")"
+
+  printf "%-${repo_width}s  %-${name_width}s  %-${path_width}s  %s\n" "REPO" "WORKTREE" "PATH" "BRANCH"
+  printf "%-${repo_width}s  %-${name_width}s  %-${path_width}s  %s\n" "$(printf '%*s' "$repo_width" '' | tr ' ' '-')" "$(printf '%*s' "$name_width" '' | tr ' ' '-')" "$(printf '%*s' "$path_width" '' | tr ' ' '-')" "$(printf '%*s' "$branch_width" '' | tr ' ' '-')"
+  awk -F '\t' -v repo_width="$repo_width" -v name_width="$name_width" -v path_width="$path_width" '{ printf "%-" repo_width "s  %-" name_width "s  %-" path_width "s  %s\n", $2, $3, $4, $5 }' "$rows_file"
+}
+
+worktree_find_rows() {
+  local rows_file="$1"
+  local target="$2"
+  local matches_file="$3"
+  : > "$matches_file"
+
+  while IFS=$'\t' read -r repo_root repo_name worktree_name worktree_path branch; do
+    [ -n "$repo_root" ] || continue
+    case "$target" in
+      "$worktree_path"|"$worktree_name"|"$branch"|worktree/"$target"|"$repo_root")
+        printf '%s\t%s\t%s\t%s\t%s\n' "$repo_root" "$repo_name" "$worktree_name" "$worktree_path" "$branch" >> "$matches_file"
+        ;;
+    esac
+  done < "$rows_file"
+}
+
+worktree_current_path_from_pwd() {
+  local top repo_root
+
+  top="$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null)" || return 1
+  repo_root="$(canonical_git_root "$top" 2>/dev/null || true)"
+  [ -n "$repo_root" ] || return 1
+  [ "$top" != "$repo_root" ] || return 1
+  printf '%s\n' "$top"
+}
+
+worktree_repo_root_for_context() {
+  local repo_path="${1:-}"
+  local cmux_bin current_workspace_root current_pwd_root
+
+  if [ -n "$repo_path" ]; then
+    worktree_repo_root_for_path "$repo_path"
+    return
+  fi
+
+  cmux_bin="$(find_cmux)"
+  current_workspace_root="$(worktree_repo_root_from_cmux "$cmux_bin" 2>/dev/null || true)"
+  if [ -n "$current_workspace_root" ]; then
+    printf '%s\n' "$current_workspace_root"
+    return 0
+  fi
+
+  current_pwd_root="$(worktree_repo_root_for_path "$PWD" 2>/dev/null || true)"
+  [ -n "$current_pwd_root" ] || return 1
+  printf '%s\n' "$current_pwd_root"
+}
+
+worktree_update_target_path() {
+  local target="${1:-}"
+  local resolved=""
+
+  if [ -n "$target" ] && [ -e "$target" ]; then
+    resolved="$(resolve_dir "$target" 2>/dev/null || true)"
+    [ -n "$resolved" ] || fail "worktree target is not a directory: $target"
+    printf '%s\n' "$resolved"
+    return 0
+  fi
+
+  if [ -n "$target" ]; then
+    return 1
+  fi
+
+  if resolved="$(worktree_current_path_from_pwd 2>/dev/null || true)"; then
+    if [ -n "$resolved" ]; then
+      printf '%s\n' "$resolved"
+      return 0
+    fi
+  fi
+
+  return 1
 }
 
 workspace_title_exists() {
@@ -1010,7 +1235,257 @@ cmd_sync() {
   fi
 }
 
-cmd_worktree() {
+cmd_worktree_list() {
+  local mode="table"
+  local repo_path=""
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --repo)
+        [ "$#" -ge 2 ] || fail "--repo requires a path"
+        repo_path="$2"
+        shift 2
+        ;;
+      --plain|--tsv)
+        mode="plain"
+        shift
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        fail "unknown worktree list option: $1"
+        ;;
+    esac
+  done
+
+  local scope_repo_root=""
+  if [ -n "$repo_path" ]; then
+    scope_repo_root="$(worktree_repo_root_for_path "$(resolve_dir "$repo_path")" 2>/dev/null)" || fail "git repo not found: $repo_path"
+  else
+    scope_repo_root="$(worktree_repo_root_from_cmux "$(find_cmux)" 2>/dev/null || true)"
+  fi
+
+  local rows_file
+  rows_file="$(mktemp)"
+  # shellcheck disable=SC2064
+  trap "rm -f '$rows_file'" RETURN
+
+  collect_worktree_rows "$rows_file" "$scope_repo_root"
+  worktree_render_rows "$rows_file" "$mode"
+}
+
+cmd_worktree_delete() {
+  local mode="apply"
+  local target=""
+  local repo_path=""
+  local target_set=0
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --dry-run)
+        mode="dry-run"
+        shift
+        ;;
+      --apply)
+        mode="apply"
+        shift
+        ;;
+      --repo)
+        [ "$#" -ge 2 ] || fail "--repo requires a path"
+        repo_path="$2"
+        shift 2
+        ;;
+      --target)
+        [ "$#" -ge 2 ] || fail "--target requires text"
+        target="$2"
+        target_set=1
+        shift 2
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      --)
+        shift
+        while [ "$#" -gt 0 ]; do
+          if [ "$target_set" -eq 1 ]; then
+            fail "worktree delete accepts at most one target"
+          fi
+          target="$1"
+          target_set=1
+          shift
+        done
+        ;;
+      --*)
+        fail "unknown worktree delete option: $1"
+        ;;
+      *)
+        if [ "$target_set" -eq 1 ]; then
+          fail "worktree delete accepts at most one target"
+        fi
+        target="$1"
+        target_set=1
+        shift
+        ;;
+    esac
+  done
+
+  local scope_repo_root=""
+  if [ -n "$repo_path" ]; then
+    scope_repo_root="$(worktree_repo_root_for_path "$(resolve_dir "$repo_path")" 2>/dev/null)" || fail "git repo not found: $repo_path"
+  else
+    scope_repo_root="$(worktree_repo_root_from_cmux "$(find_cmux)" 2>/dev/null || true)"
+    if [ -z "$scope_repo_root" ]; then
+      scope_repo_root="$(worktree_repo_root_for_path "$PWD" 2>/dev/null || true)"
+    fi
+  fi
+
+  if [ -z "$target" ]; then
+    target="$(worktree_current_path_from_pwd 2>/dev/null || true)"
+    [ -n "$target" ] || fail "worktree delete requires a target or must be run inside a worktree"
+  fi
+
+  local rows_file matches_file match_count repo_root repo_name worktree_name worktree_path branch worktree_root
+  rows_file="$(mktemp)"
+  matches_file="$(mktemp)"
+  # shellcheck disable=SC2064
+  trap "rm -f '$rows_file' '$matches_file'" RETURN
+
+  collect_worktree_rows "$rows_file" "$scope_repo_root"
+  worktree_find_rows "$rows_file" "$target" "$matches_file"
+
+  match_count="$(wc -l < "$matches_file" | tr -d ' ')"
+  [ "$match_count" -gt 0 ] || fail "worktree not found: $target"
+  [ "$match_count" -eq 1 ] || fail "worktree target is ambiguous: $target"
+
+  IFS=$'\t' read -r repo_root repo_name worktree_name worktree_path branch < "$matches_file"
+  worktree_root="$worktree_path"
+
+  if [ "$worktree_root" = "$repo_root" ]; then
+    fail "refusing to delete the main repository checkout: $worktree_root"
+  fi
+
+  if [ "$mode" = "dry-run" ]; then
+    printf 'would-delete-worktree\t%s\t%s\t%s\n' "$worktree_name" "$worktree_root" "$branch"
+    print_apply_hint wt delete "$worktree_name"
+    return 0
+  fi
+
+  git -C "$repo_root" worktree remove --force "$worktree_root" >/dev/null 2>&1 || fail "failed to remove worktree: $worktree_root"
+  printf 'delete-worktree\t%s\t%s\t%s\n' "$worktree_name" "$worktree_root" "$branch"
+}
+
+cmd_worktree_update() {
+  local mode="apply"
+  local target=""
+  local repo_path=""
+  local target_set=0
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --dry-run)
+        mode="dry-run"
+        shift
+        ;;
+      --apply)
+        mode="apply"
+        shift
+        ;;
+      --repo)
+        [ "$#" -ge 2 ] || fail "--repo requires a path"
+        repo_path="$2"
+        shift 2
+        ;;
+      --target)
+        [ "$#" -ge 2 ] || fail "--target requires text"
+        target="$2"
+        target_set=1
+        shift 2
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      --)
+        shift
+        while [ "$#" -gt 0 ]; do
+          if [ "$target_set" -eq 1 ]; then
+            fail "worktree update accepts at most one target"
+          fi
+          target="$1"
+          target_set=1
+          shift
+        done
+        ;;
+      --*)
+        fail "unknown worktree update option: $1"
+        ;;
+      *)
+        if [ "$target_set" -eq 1 ]; then
+          fail "worktree update accepts at most one target"
+        fi
+        target="$1"
+        target_set=1
+        shift
+        ;;
+    esac
+  done
+
+  local scope_repo_root=""
+  if [ -n "$repo_path" ]; then
+    scope_repo_root="$(worktree_repo_root_for_path "$(resolve_dir "$repo_path")" 2>/dev/null)" || fail "git repo not found: $repo_path"
+  else
+    scope_repo_root="$(worktree_repo_root_from_cmux "$(find_cmux)" 2>/dev/null || true)"
+    if [ -z "$scope_repo_root" ]; then
+      scope_repo_root="$(worktree_repo_root_for_path "$PWD" 2>/dev/null || true)"
+    fi
+  fi
+
+  if [ -z "$target" ]; then
+    target="$(worktree_update_target_path "" 2>/dev/null || true)"
+    [ -n "$target" ] || fail "worktree update requires a target or must be run inside a worktree"
+  fi
+
+  local rows_file matches_file match_count repo_root repo_name worktree_name worktree_path branch
+  rows_file="$(mktemp)"
+  matches_file="$(mktemp)"
+  # shellcheck disable=SC2064
+  trap "rm -f '$rows_file' '$matches_file'" RETURN
+
+  collect_worktree_rows "$rows_file" "$scope_repo_root"
+  worktree_find_rows "$rows_file" "$target" "$matches_file"
+
+  match_count="$(wc -l < "$matches_file" | tr -d ' ')"
+  [ "$match_count" -gt 0 ] || fail "worktree not found: $target"
+  [ "$match_count" -eq 1 ] || fail "worktree target is ambiguous: $target"
+
+  IFS=$'\t' read -r repo_root repo_name worktree_name worktree_path branch < "$matches_file"
+
+  if [ "$worktree_path" = "$repo_root" ]; then
+    if [ "$mode" = "dry-run" ]; then
+      printf 'would-update-repo\t%s\t%s\n' "$repo_name" "$worktree_path"
+      print_apply_hint wt update "$worktree_name"
+      return 0
+    fi
+  fi
+
+  if [ "$mode" = "dry-run" ]; then
+    printf 'would-update-worktree\t%s\t%s\t%s\n' "$worktree_name" "$worktree_path" "$branch"
+    print_apply_hint wt update "$worktree_name"
+    return 0
+  fi
+
+  (
+    cd "$worktree_path"
+    git fetch --all --prune >/dev/null 2>&1 || fail "failed to fetch updates: $worktree_path"
+    git pull --ff-only >/dev/null 2>&1 || fail "failed to update worktree: $worktree_path"
+  )
+  printf 'update-worktree\t%s\t%s\t%s\n' "$worktree_name" "$worktree_path" "$branch"
+}
+
+cmd_worktree_create() {
   local mode="apply"
   local repo_path=""
   local repo_set=0
@@ -1047,7 +1522,7 @@ cmd_worktree() {
         shift
         while [ "$#" -gt 0 ]; do
           if [ "$name_set" -eq 1 ]; then
-            fail "pane accepts at most one name"
+            fail "worktree accepts at most one name"
           fi
           requested_name="$1"
           name_set=1
@@ -1055,11 +1530,11 @@ cmd_worktree() {
         done
         ;;
       --*)
-        fail "unknown pane option: $1"
+        fail "unknown worktree option: $1"
         ;;
       *)
         if [ "$name_set" -eq 1 ]; then
-          fail "pane accepts at most one name"
+          fail "worktree accepts at most one name"
         fi
         requested_name="$1"
         name_set=1
@@ -1143,6 +1618,11 @@ cmd_worktree() {
       else
         git -C "$repo_root" worktree add -b "$branch_name" "$worktree_path" "$start_point" >/dev/null 2>&1 || fail "failed to create worktree: $worktree_path"
       fi
+      local upstream_ref
+      upstream_ref="$(git -C "$repo_root" rev-parse --abbrev-ref "$current_ref@{upstream}" 2>/dev/null || true)"
+      if [ -n "$upstream_ref" ]; then
+        git -C "$worktree_path" branch --set-upstream-to="$upstream_ref" "$branch_name" >/dev/null 2>&1 || true
+      fi
       printf 'create-worktree\t%s\t%s\t%s\n' "$final_name" "$worktree_path" "$branch_name"
     else
       printf 'would-create-worktree\t%s\t%s\t%s\n' "$final_name" "$worktree_path" "$branch_name"
@@ -1165,6 +1645,72 @@ cmd_worktree() {
     fi
     print_apply_hint worktree "${hint_args[@]}"
   fi
+}
+
+cmd_worktree() {
+  local reserved=""
+  local reserved_index=-1
+  local seen_name=0
+  local args=("$@")
+  local index=0
+  local arg
+
+  while [ "$index" -lt "${#args[@]}" ]; do
+    arg="${args[$index]}"
+    case "$arg" in
+      --dry-run|--apply|-h|--help)
+        index=$((index + 1))
+        ;;
+      --repo|--target)
+        index=$((index + 2))
+        ;;
+      --name)
+        seen_name=1
+        index=$((index + 2))
+        ;;
+      --)
+        index=$((index + 1))
+        if [ "$index" -lt "${#args[@]}" ] && [ "$seen_name" -eq 0 ]; then
+          reserved="${args[$index]}"
+          reserved_index="$index"
+        fi
+        break
+        ;;
+      --*)
+        index=$((index + 1))
+        ;;
+      *)
+        if [ "$seen_name" -eq 0 ]; then
+          reserved="$arg"
+          reserved_index="$index"
+        fi
+        break
+        ;;
+    esac
+  done
+
+  local sub_args=("${args[@]}")
+  if [ "$reserved_index" -ge 0 ]; then
+    sub_args=("${args[@]:0:$reserved_index}" "${args[@]:$((reserved_index + 1))}")
+  fi
+
+  case "$reserved" in
+    list|ls)
+      cmd_worktree_list "${sub_args[@]}"
+      ;;
+    delete|remove|rm)
+      cmd_worktree_delete "${sub_args[@]}"
+      ;;
+    update|refresh|up)
+      cmd_worktree_update "${sub_args[@]}"
+      ;;
+    "")
+      cmd_worktree_create "$@"
+      ;;
+    *)
+      cmd_worktree_create "$@"
+      ;;
+  esac
 }
 
 cmd_list() {

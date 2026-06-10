@@ -51,7 +51,20 @@ _c4j_complete() {
         _c4j__complete_words "$cur" --dry-run --apply --keep-cmux -h --help
         ;;
       worktree|wt|pane|make-pane)
-        _c4j__complete_words "$cur" --dry-run --apply --repo --name -h --help
+        case "$subcommand" in
+          list|ls)
+            _c4j__complete_words "$cur" --repo --plain --tsv -h --help
+            ;;
+          delete|remove|rm)
+            _c4j__complete_words "$cur" --dry-run --apply --repo --target -h --help
+            ;;
+          update|refresh|up)
+            _c4j__complete_words "$cur" --dry-run --apply --repo --target -h --help
+            ;;
+          *)
+            _c4j__complete_words "$cur" list ls delete remove rm update refresh up --dry-run --apply --repo --name -h --help
+            ;;
+        esac
         ;;
       setup)
         _c4j__complete_words "$cur" --dry-run --apply --active-dir --name-prefix --prefix -h --help
@@ -97,12 +110,42 @@ _c4j_complete() {
       _c4j__complete_dirs "$cur"
       ;;
     worktree|wt|pane|make-pane)
-      case "$prev" in
-        --name)
-          COMPREPLY=()
+      case "$subcommand" in
+        list|ls)
+          _c4j__complete_words "$cur" --repo --plain --tsv
+          ;;
+        delete|remove|rm)
+          case "$prev" in
+            --target|--repo)
+              _c4j__complete_dirs "$cur"
+              ;;
+            *)
+              _c4j__complete_words "$cur" --dry-run --apply --repo --target
+              ;;
+          esac
+          ;;
+        update|refresh|up)
+          case "$prev" in
+            --target|--repo)
+              _c4j__complete_dirs "$cur"
+              ;;
+            *)
+              _c4j__complete_words "$cur" --dry-run --apply --repo --target
+              ;;
+          esac
           ;;
         *)
-          _c4j__complete_words "$cur" --dry-run --apply --repo --name
+          case "$prev" in
+            --name)
+              COMPREPLY=()
+              ;;
+            --repo)
+              _c4j__complete_dirs "$cur"
+              ;;
+            *)
+              _c4j__complete_words "$cur" list ls delete remove rm update refresh up --dry-run --apply --repo --name
+              ;;
+          esac
           ;;
       esac
       ;;

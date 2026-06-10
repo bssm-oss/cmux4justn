@@ -141,6 +141,10 @@ printf 'hello\n' > "$WORKTREE_REPO/README.md"
 git -C "$WORKTREE_REPO" add README.md
 git -C "$WORKTREE_REPO" commit -m "init" >/dev/null
 export WORKTREE_REPO
+REMOTE_REPO="$TMPDIR/remote.git"
+git init --bare "$REMOTE_REPO" >/dev/null
+git -C "$WORKTREE_REPO" remote add origin "$REMOTE_REPO"
+git -C "$WORKTREE_REPO" push -u origin main >/dev/null
 WORKTREE_HOME_RESOLVED="$(cd "$TMPDIR/home" && pwd -P)"
 WORKTREE_ROOT_RESOLVED="$WORKTREE_HOME_RESOLVED/Workspaces/worktrees/bssm-oss/main/justn-hyeok/cmux4justn"
 CMUX_WORKSPACE_ROOT="$TMPDIR/cmux-workspace"
@@ -151,6 +155,11 @@ cd "$CMUX_WORKSPACE_ROOT"
 output="$($CLI wt feature-from-cmux --dry-run)"
 assert_contains "$output" "would-create-worktree	feature-from-cmux	$WORKTREE_ROOT_RESOLVED/feature-from-cmux	worktree/feature-from-cmux"
 [ ! -e "$WORKTREE_ROOT_RESOLVED/feature-from-cmux" ] || fail "cmux workspace dry-run should not create worktree"
+
+output="$($CLI wt list)"
+assert_contains "$output" "WORKTREE"
+assert_contains "$output" "cmux4justn"
+assert_not_contains "$output" "otherrepo"
 
 cd "$WORKTREE_REPO"
 
@@ -180,6 +189,42 @@ assert_contains "$output" "would-create-worktree	for-feature1	$WORKTREE_ROOT_RES
 output="$($CLI wt for-feature1)"
 assert_contains "$output" "create-worktree	for-feature1	$WORKTREE_ROOT_RESOLVED/for-feature1	worktree/for-feature1"
 [ -d "$WORKTREE_ROOT_RESOLVED/for-feature1" ] || fail "positional wt should create explicit worktree"
+
+OTHER_REPO="$TMPDIR/home/Workspaces/repos/bssm-oss/main/justn-hyeok/otherrepo"
+mkdir -p "$OTHER_REPO"
+git -C "$OTHER_REPO" init >/dev/null
+git -C "$OTHER_REPO" symbolic-ref HEAD refs/heads/main
+git -C "$OTHER_REPO" config user.name "Test User"
+git -C "$OTHER_REPO" config user.email "test@example.com"
+printf 'other\n' > "$OTHER_REPO/README.md"
+git -C "$OTHER_REPO" add README.md
+git -C "$OTHER_REPO" commit -m "init" >/dev/null
+OTHER_WORKTREE_ROOT_RESOLVED="$WORKTREE_HOME_RESOLVED/Workspaces/worktrees/bssm-oss/main/justn-hyeok/otherrepo"
+output="$($CLI wt --repo "$OTHER_REPO" other-feature)"
+assert_contains "$output" "create-worktree	other-feature	$OTHER_WORKTREE_ROOT_RESOLVED/other-feature	worktree/other-feature"
+[ -d "$OTHER_WORKTREE_ROOT_RESOLVED/other-feature" ] || fail "other repo worktree should create explicit worktree"
+
+output="$(C4J_CMUX_BIN="$TMPDIR/no-cmux" $CLI wt list)"
+assert_contains "$output" "otherrepo"
+assert_contains "$output" "other-feature"
+assert_contains "$output" "cmux4justn"
+
+output="$($CLI wt delete api)"
+assert_contains "$output" "delete-worktree	api	$WORKTREE_ROOT_RESOLVED/api	worktree/api"
+[ ! -d "$WORKTREE_ROOT_RESOLVED/api" ] || fail "delete should remove the named worktree"
+
+before_update_head="$(git -C "$WORKTREE_ROOT_RESOLVED/cmux4justn-main" rev-parse HEAD)"
+printf 'world\n' >> "$WORKTREE_REPO/README.md"
+git -C "$WORKTREE_REPO" add README.md
+git -C "$WORKTREE_REPO" commit -m "update main" >/dev/null
+git -C "$WORKTREE_REPO" push origin main >/dev/null
+output="$($CLI wt update cmux4justn-main)"
+assert_contains "$output" "update-worktree	cmux4justn-main	$WORKTREE_ROOT_RESOLVED/cmux4justn-main	worktree/cmux4justn-main"
+after_update_head="$(git -C "$WORKTREE_ROOT_RESOLVED/cmux4justn-main" rev-parse HEAD)"
+expected_update_head="$(git -C "$WORKTREE_REPO" rev-parse HEAD)"
+[ "$before_update_head" != "$after_update_head" ] || fail "update should advance the worktree"
+[ "$after_update_head" = "$expected_update_head" ] || fail "update should match the latest main commit"
+
 cd "$WORKTREE_OLDPWD"
 
 INSTALL_RC="$TMPDIR/zshrc"
@@ -441,7 +486,7 @@ assert_contains "$output" "download-source	file://$ROOT	$STDIN_BOOTSTRAP_INSTALL
 assert_contains "$output" "installed-bin	$STDIN_BOOTSTRAP_HOME/.local/bin/c4j"
 [ -x "$STDIN_BOOTSTRAP_HOME/.local/bin/c4j" ] || fail "stdin bootstrap install should create c4j executable"
 
-[ "$($CLI version)" = "0.11.2" ] || fail "version mismatch"
-[ "$("$ROOT/bin/cmux4justn" version)" = "0.11.2" ] || fail "legacy version mismatch"
+[ "$($CLI version)" = "0.12.0" ] || fail "version mismatch"
+[ "$("$ROOT/bin/cmux4justn" version)" = "0.12.0" ] || fail "legacy version mismatch"
 
 printf 'PASS cmux4justn tests\n'

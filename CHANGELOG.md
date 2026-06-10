@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.12.0 - 2026-06-10
+
+### Added
+
+- Added `c4j wt list`, `c4j wt delete`, and `c4j wt update` for browsing and managing worktrees.
+- Added cmux-aware worktree listing so `c4j wt list` scopes to the current workspace when available, and falls back to the full managed worktree set otherwise.
+
+### Changed
+
+- Updated the installed shell wrapper and completion flow so successful `c4j wt ...` still cd's into the created or reused worktree.
+- Updated install bootstrap references and release URLs to `v0.12.0`.
+
 ## v0.11.2 - 2026-06-10
 
 ### Fixed
