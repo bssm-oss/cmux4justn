@@ -33,7 +33,7 @@ _c4j_complete() {
   field="${COMP_WORDS[3]:-}"
 
   case "$prev" in
-    --cwd|--active-dir)
+    --cwd|--active-dir|--repo)
       _c4j__complete_dirs "$cur"
       return 0
       ;;
@@ -49,6 +49,9 @@ _c4j_complete() {
         ;;
       delete|remove|rm)
         _c4j__complete_words "$cur" --dry-run --apply --keep-cmux -h --help
+        ;;
+      worktree|wt|pane|make-pane)
+        _c4j__complete_words "$cur" --dry-run --apply --repo --name -h --help
         ;;
       setup)
         _c4j__complete_words "$cur" --dry-run --apply --active-dir --name-prefix --prefix -h --help
@@ -92,6 +95,16 @@ _c4j_complete() {
       ;;
     delete|remove|rm)
       _c4j__complete_dirs "$cur"
+      ;;
+    worktree|wt|pane|make-pane)
+      case "$prev" in
+        --name)
+          COMPREPLY=()
+          ;;
+        *)
+          _c4j__complete_words "$cur" --dry-run --apply --repo --name
+          ;;
+      esac
       ;;
     setup)
       case "$prev" in
@@ -143,7 +156,7 @@ _c4j_complete() {
       COMPREPLY=()
       ;;
     *)
-      _c4j__complete_words "$cur" add anchor delete setup sync list config doctor version remove rm
+      _c4j__complete_words "$cur" add anchor delete worktree wt pane make-pane setup sync list config doctor version remove rm
       ;;
   esac
 }

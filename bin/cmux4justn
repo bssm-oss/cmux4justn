@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="0.10.1"
+VERSION="0.10.2"
 DEFAULT_ACTIVE_DIR="${HOME:-/Users/justn}/.c4j/active"
 DEFAULT_ANCHOR_DIR="${HOME:-/Users/justn}/Workspaces"
+DEFAULT_WORKTREE_DIR="${HOME:-/Users/justn}/Workspaces/worktrees"
 CONFIG_FILE="${C4J_CONFIG:-${CMUX4JUSTN_CONFIG:-${HOME:-/Users/justn}/.c4j/config}}"
 
 config_get_value() {
@@ -19,15 +20,17 @@ CONFIG_NAME_PREFIX="$(config_get_value name_prefix 2>/dev/null || true)"
 ACTIVE_DIR="${C4J_ACTIVE_DIR:-${CMUX4JUSTN_ACTIVE_DIR:-${ACTIVE_DIR:-${CONFIG_ACTIVE_DIR:-$DEFAULT_ACTIVE_DIR}}}}"
 CMUX_BIN="${C4J_CMUX_BIN:-${CMUX4JUSTN_CMUX_BIN:-${CMUX_BIN:-${CONFIG_CMUX_BIN:-}}}}"
 NAME_PREFIX="${C4J_NAME_PREFIX:-${CMUX4JUSTN_NAME_PREFIX:-${CONFIG_NAME_PREFIX:-@active/}}}"
+WORKTREE_DIR="${C4J_WORKTREE_DIR:-${CMUX4JUSTN_WORKTREE_DIR:-$DEFAULT_WORKTREE_DIR}}"
 
 usage() {
   cat <<'USAGE'
-c4j v0.10.1 - tiny active-project <-> cmux sync
+c4j v0.10.2 - tiny active-project <-> cmux sync
 
 Usage:
   c4j add [--dry-run|--apply] <path>...
   c4j anchor [--dry-run|--apply] [--name <title>] [--cwd <path>]
   c4j delete [--dry-run|--apply] [--keep-cmux] <name-or-path>...
+  c4j worktree [--dry-run|--apply] [--repo <path>] [<name>]
   c4j setup [--dry-run|--apply] [--active-dir <path>] [--name-prefix <prefix>]
   c4j sync [--dry-run|--apply] [--direction active-to-cmux|cmux-to-active|both]
   c4j list [--plain]
@@ -44,6 +47,7 @@ Defaults:
   add  => --apply, then sync --direction both
   anchor => --apply, ensure a pinned cmux workspace at ~/Workspaces
   delete => --apply, remove active symlink and close matching cmux workspace
+  worktree => --apply, create a git worktree for the current repo
   setup => --apply, set name-prefix to @active/
   sync => --dry-run --direction active-to-cmux
 
@@ -52,6 +56,7 @@ Environment:
   C4J_CMUX_BIN     default: cmux from PATH or /Applications/cmux.app/Contents/Resources/bin/cmux
   C4J_NAME_PREFIX  default: @active/
   C4J_ANCHOR_DIR   default: ~/Workspaces
+  C4J_WORKTREE_DIR default: ~/Workspaces/worktrees
   C4J_CONFIG       default: ~/.c4j/config
 
 Compatibility:
@@ -68,6 +73,66 @@ resolve_dir() {
   local path="$1"
   [ -d "$path" ] || return 1
   (cd -- "$path" && pwd -P)
+}
+
+slugify_name() {
+  local value="$1"
+  value="$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')"
+  [ -n "$value" ] || return 1
+  printf '%s\n' "$value"
+}
+
+canonical_git_root() {
+  local path="$1"
+  local git_dir
+
+  git_dir="$(git -C "$path" rev-parse --absolute-git-dir 2>/dev/null)" || return 1
+  case "$git_dir" in
+    */.git/worktrees/*)
+      dirname "$(dirname "$(dirname "$git_dir")")"
+      ;;
+    */.git)
+      dirname "$git_dir"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+current_git_ref() {
+  local path="$1"
+  local branch short_sha
+
+  branch="$(git -C "$path" branch --show-current 2>/dev/null || true)"
+  if [ -n "$branch" ]; then
+    printf '%s\n' "$branch"
+    return 0
+  fi
+
+  short_sha="$(git -C "$path" rev-parse --short HEAD 2>/dev/null)" || return 1
+  printf 'detached-%s\n' "$short_sha"
+}
+
+worktree_registered_at_path() {
+  local repo_root="$1"
+  local path="$2"
+
+  git -C "$repo_root" worktree list --porcelain | awk -v target="$path" '$1 == "worktree" && $2 == target { found = 1 } END { exit found ? 0 : 1 }'
+}
+
+worktree_branch_in_use() {
+  local repo_root="$1"
+  local branch="$2"
+
+  git -C "$repo_root" worktree list --porcelain | awk -v target="refs/heads/$branch" '$1 == "branch" && $2 == target { found = 1 } END { exit found ? 0 : 1 }'
+}
+
+git_branch_exists() {
+  local repo_root="$1"
+  local branch="$2"
+
+  git -C "$repo_root" show-ref --verify --quiet "refs/heads/$branch"
 }
 
 is_safe_name() {
@@ -892,6 +957,154 @@ cmd_sync() {
   fi
 }
 
+cmd_worktree() {
+  local mode="apply"
+  local repo_path=""
+  local repo_set=0
+  local requested_name=""
+  local name_set=0
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --dry-run)
+        mode="dry-run"
+        shift
+        ;;
+      --apply)
+        mode="apply"
+        shift
+        ;;
+      --repo)
+        [ "$#" -ge 2 ] || fail "--repo requires a path"
+        repo_path="$2"
+        repo_set=1
+        shift 2
+        ;;
+      --name)
+        [ "$#" -ge 2 ] || fail "--name requires text"
+        requested_name="$2"
+        name_set=1
+        shift 2
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      --)
+        shift
+        while [ "$#" -gt 0 ]; do
+          if [ "$name_set" -eq 1 ]; then
+            fail "pane accepts at most one name"
+          fi
+          requested_name="$1"
+          name_set=1
+          shift
+        done
+        ;;
+      --*)
+        fail "unknown pane option: $1"
+        ;;
+      *)
+        if [ "$name_set" -eq 1 ]; then
+          fail "pane accepts at most one name"
+        fi
+        requested_name="$1"
+        name_set=1
+        shift
+        ;;
+    esac
+  done
+
+  if [ -z "$repo_path" ]; then
+    repo_path="$PWD"
+  fi
+
+  repo_path="$(resolve_dir "$repo_path")" || fail "git repo not found: $repo_path"
+
+  local repo_root canonical_root repo_name current_ref repo_slug ref_slug base_name final_name worktree_base worktree_path branch_name start_point
+  local worktree_exists=0
+  repo_root="$(git -C "$repo_path" rev-parse --show-toplevel 2>/dev/null)" || fail "git repo not found: $repo_path"
+  canonical_root="$(canonical_git_root "$repo_path")" || fail "cannot resolve canonical repo root: $repo_path"
+  repo_name="$(basename "$canonical_root")"
+  repo_slug="$(slugify_name "$repo_name")" || fail "invalid repo name: $repo_name"
+  current_ref="$(current_git_ref "$repo_path")" || fail "cannot resolve current git ref: $repo_path"
+  ref_slug="$(slugify_name "$current_ref")" || fail "invalid git ref: $current_ref"
+  base_name="${repo_slug}-${ref_slug}"
+
+  case "$canonical_root" in
+    */Workspaces/repos/*)
+      local repos_root relative_repo_path
+      repos_root="${canonical_root%%/Workspaces/repos/*}/Workspaces/repos"
+      relative_repo_path="${canonical_root#"$repos_root"/}"
+      worktree_base="${repos_root%/repos}/worktrees/$relative_repo_path"
+      ;;
+    *)
+      worktree_base="$WORKTREE_DIR/external/$repo_slug"
+      ;;
+  esac
+
+  if [ "$name_set" -eq 1 ]; then
+    final_name="$(slugify_name "$requested_name")" || fail "invalid worktree name: $requested_name"
+  else
+    final_name="$base_name"
+    local suffix=2
+    while :; do
+      worktree_path="$worktree_base/$final_name"
+      branch_name="worktree/$final_name"
+      if worktree_registered_at_path "$repo_root" "$worktree_path" || [ -e "$worktree_path" ] || worktree_branch_in_use "$repo_root" "$branch_name" || git_branch_exists "$repo_root" "$branch_name"; then
+        final_name="${base_name}-$suffix"
+        suffix=$((suffix + 1))
+        continue
+      fi
+      break
+    done
+  fi
+
+  worktree_path="$worktree_base/$final_name"
+  branch_name="worktree/$final_name"
+  start_point="$current_ref"
+
+  if worktree_registered_at_path "$repo_root" "$worktree_path"; then
+    worktree_exists=1
+  elif [ -e "$worktree_path" ]; then
+    fail "worktree path already exists and is not a registered worktree: $worktree_path"
+  fi
+
+  if [ "$worktree_exists" -eq 0 ]; then
+    mkdir -p "$worktree_base"
+    if [ "$mode" = "apply" ]; then
+      if worktree_branch_in_use "$repo_root" "$branch_name"; then
+        fail "worktree branch is already in use: $branch_name"
+      fi
+      if git_branch_exists "$repo_root" "$branch_name"; then
+        git -C "$repo_root" worktree add "$worktree_path" "$branch_name" >/dev/null 2>&1 || fail "failed to create worktree: $worktree_path"
+      else
+        git -C "$repo_root" worktree add -b "$branch_name" "$worktree_path" "$start_point" >/dev/null 2>&1 || fail "failed to create worktree: $worktree_path"
+      fi
+      printf 'create-worktree\t%s\t%s\t%s\n' "$final_name" "$worktree_path" "$branch_name"
+    else
+      printf 'would-create-worktree\t%s\t%s\t%s\n' "$final_name" "$worktree_path" "$branch_name"
+    fi
+  else
+    if [ "$mode" = "apply" ]; then
+      printf 'reuse-worktree\t%s\t%s\n' "$final_name" "$worktree_path"
+    else
+      printf 'would-reuse-worktree\t%s\t%s\n' "$final_name" "$worktree_path"
+    fi
+  fi
+
+  if [ "$mode" = "dry-run" ]; then
+    local hint_args=()
+    if [ "$repo_set" -eq 1 ]; then
+      hint_args+=(--repo "$repo_path")
+    fi
+    if [ "$name_set" -eq 1 ]; then
+      hint_args+=(--name "$requested_name")
+    fi
+    print_apply_hint worktree "${hint_args[@]}"
+  fi
+}
+
 cmd_list() {
   local format="table"
   while [ "$#" -gt 0 ]; do
@@ -972,6 +1185,10 @@ main() {
     delete|remove|rm)
       shift
       cmd_delete "$@"
+      ;;
+    worktree|wt|pane|make-pane)
+      shift
+      cmd_worktree "$@"
       ;;
     setup)
       shift

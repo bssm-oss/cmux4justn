@@ -44,6 +44,30 @@ CALLS="$TMPDIR/calls"
 cat > "$FAKE_CMUX" <<'FAKE'
 #!/usr/bin/env bash
 set -euo pipefail
+if [ "${1:-}" = "identify" ] && [ "${2:-}" = "--json" ]; then
+  cat <<JSON
+{
+  "caller": {
+    "pane_ref": "pane:7",
+    "surface_ref": "surface:14",
+    "surface_type": "terminal",
+    "tab_ref": "tab:14",
+    "window_ref": "window:1",
+    "workspace_ref": "workspace:7"
+  },
+  "focused": {
+    "pane_ref": "pane:2",
+    "surface_ref": "surface:5",
+    "surface_type": "terminal",
+    "tab_ref": "tab:5",
+    "window_ref": "window:1",
+    "workspace_ref": "workspace:2"
+  },
+  "socket_path": "/tmp/cmux.sock"
+}
+JSON
+  exit 0
+fi
 if [ "${1:-}" = "--json" ] && [ "${2:-}" = "list-workspaces" ]; then
   cat <<JSON
 {
@@ -61,7 +85,7 @@ JSON
 fi
 
 case "${1:-}" in
-  new-workspace|close-workspace|workspace-action)
+  new-workspace|close-workspace|workspace-action|new-pane|send|send-key)
     printf '%s\n' "$*" >> "$CMUX_FAKE_CALLS"
     ;;
   *)
@@ -105,6 +129,48 @@ assert_not_contains "$output" "create-workspace	@active/alpha"
 [ -e "$CALLS" ] || fail "apply should call new-workspace"
 assert_contains "$(cat "$CALLS")" "new-workspace --name @active/beta --cwd"
 rm -f "$CALLS"
+
+WORKTREE_REPO="$TMPDIR/home/Workspaces/repos/bssm-oss/main/justn-hyeok/cmux4justn"
+mkdir -p "$WORKTREE_REPO"
+git -C "$WORKTREE_REPO" init >/dev/null
+git -C "$WORKTREE_REPO" symbolic-ref HEAD refs/heads/main
+git -C "$WORKTREE_REPO" config user.name "Test User"
+git -C "$WORKTREE_REPO" config user.email "test@example.com"
+printf 'hello\n' > "$WORKTREE_REPO/README.md"
+git -C "$WORKTREE_REPO" add README.md
+git -C "$WORKTREE_REPO" commit -m "init" >/dev/null
+WORKTREE_HOME_RESOLVED="$(cd "$TMPDIR/home" && pwd -P)"
+WORKTREE_ROOT_RESOLVED="$WORKTREE_HOME_RESOLVED/Workspaces/worktrees/bssm-oss/main/justn-hyeok/cmux4justn"
+WORKTREE_OLDPWD="$PWD"
+cd "$WORKTREE_REPO"
+
+output="$($CLI worktree --dry-run)"
+assert_contains "$output" "would-create-worktree	cmux4justn-main	$WORKTREE_ROOT_RESOLVED/cmux4justn-main	worktree/cmux4justn-main"
+assert_contains "$output" "note	dry-run	apply with: c4j worktree --apply"
+[ ! -e "$WORKTREE_ROOT_RESOLVED/cmux4justn-main" ] || fail "worktree dry-run should not create worktree"
+
+output="$($CLI worktree --apply)"
+assert_contains "$output" "create-worktree	cmux4justn-main	$WORKTREE_ROOT_RESOLVED/cmux4justn-main	worktree/cmux4justn-main"
+[ -d "$WORKTREE_ROOT_RESOLVED/cmux4justn-main" ] || fail "worktree apply should create worktree"
+assert_contains "$(git -C "$WORKTREE_ROOT_RESOLVED/cmux4justn-main" branch --show-current)" "worktree/cmux4justn-main"
+
+output="$($CLI worktree --apply)"
+assert_contains "$output" "create-worktree	cmux4justn-main-2	$WORKTREE_ROOT_RESOLVED/cmux4justn-main-2	worktree/cmux4justn-main-2"
+[ -d "$WORKTREE_ROOT_RESOLVED/cmux4justn-main-2" ] || fail "second worktree apply should create a suffixed worktree"
+
+output="$($CLI worktree --apply --name api)"
+assert_contains "$output" "create-worktree	api	$WORKTREE_ROOT_RESOLVED/api	worktree/api"
+[ -d "$WORKTREE_ROOT_RESOLVED/api" ] || fail "named worktree apply should create explicit worktree"
+
+output="$($CLI worktree --dry-run --name docs)"
+assert_contains "$output" "would-create-worktree	docs	$WORKTREE_ROOT_RESOLVED/docs	worktree/docs"
+output="$($CLI wt for-feature1 --dry-run)"
+assert_contains "$output" "would-create-worktree	for-feature1	$WORKTREE_ROOT_RESOLVED/for-feature1	worktree/for-feature1"
+
+output="$($CLI wt for-feature1)"
+assert_contains "$output" "create-worktree	for-feature1	$WORKTREE_ROOT_RESOLVED/for-feature1	worktree/for-feature1"
+[ -d "$WORKTREE_ROOT_RESOLVED/for-feature1" ] || fail "positional wt should create explicit worktree"
+cd "$WORKTREE_OLDPWD"
 
 output="$($CLI sync --direction cmux-to-active --dry-run)"
 assert_contains "$output" "skip existing-link	@active/alpha"
@@ -357,7 +423,7 @@ assert_contains "$output" "download-source	file://$ROOT	$STDIN_BOOTSTRAP_INSTALL
 assert_contains "$output" "installed-bin	$STDIN_BOOTSTRAP_HOME/.local/bin/c4j"
 [ -x "$STDIN_BOOTSTRAP_HOME/.local/bin/c4j" ] || fail "stdin bootstrap install should create c4j executable"
 
-[ "$($CLI version)" = "0.10.1" ] || fail "version mismatch"
-[ "$("$ROOT/bin/cmux4justn" version)" = "0.10.1" ] || fail "legacy version mismatch"
+[ "$($CLI version)" = "0.10.2" ] || fail "version mismatch"
+[ "$("$ROOT/bin/cmux4justn" version)" = "0.10.2" ] || fail "legacy version mismatch"
 
 printf 'PASS cmux4justn tests\n'

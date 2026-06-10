@@ -14,12 +14,13 @@ It gives cmux users a small workspace manager for adding projects, listing activ
 - Active project registry backed by symlinks in `~/.c4j/active`.
 - cmux workspace sync with configurable title prefixes such as `@active/`.
 - Pinned cmux anchor workspace support through `c4j anchor`.
+- Git worktree creation for the current repo.
 - Safe defaults: dry-run sync, explicit apply, and no real project directory deletion.
 
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.1/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.2/install.sh | bash
 ```
 
 The installer:
@@ -110,6 +111,24 @@ Aliases:
 
 - `remove`
 - `rm`
+
+### `c4j worktree [--dry-run|--apply] [--repo <path>] [--name <name>]`
+
+Creates a git worktree for the current repo under `~/Workspaces/worktrees`, mirroring the canonical repo path under `~/Workspaces/repos`.
+If you run it from inside the repo you want to branch off, it uses that current working directory as the source repo. Pass `--repo` to override the source path.
+The first positional argument is the worktree name, so `c4j wt for-feature1` is the normal shorthand.
+
+The default worktree name is `<repo>-<branch>`. If that name already exists, `c4j` appends `-2`, `-3`, and so on. Pass `--name` to override the worktree name directly.
+
+`worktree` defaults to `--apply`. `wt`, `pane`, and `make-pane` are aliases.
+
+```bash
+c4j worktree
+c4j worktree --dry-run
+c4j wt for-feature1
+c4j worktree --repo ~/Workspaces/repos/bssm-oss/main/justn-hyeok/cmux4justn
+c4j worktree --name api
+```
 
 ### `c4j setup [--dry-run|--apply] [--active-dir <path>] [--name-prefix <prefix>]`
 
@@ -203,13 +222,13 @@ Prints the CLI version.
 
 ```bash
 # Install a specific release.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.1/install.sh | C4J_REF=v0.10.1 bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.2/install.sh | C4J_REF=v0.10.2 bash
 
 # Install from main instead of the release pinned by the bootstrap script.
 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash
 
 # Download source somewhere else.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.1/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.2/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
 
 # Preview all installer actions.
 scripts/install.sh --dry-run

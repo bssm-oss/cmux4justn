@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.10.2 - 2026-06-10
+
+### Added
+
+- Added `c4j worktree` for creating a git worktree from the current repo with a short `wt` alias.
+- Added shorthand positional naming so `c4j wt for-feature1` creates a worktree named `for-feature1`.
+
+### Changed
+
+- Updated install bootstrap references and release URLs to `v0.10.2`.
+
 ## v0.10.1 - 2026-06-08
 
 ### Added
