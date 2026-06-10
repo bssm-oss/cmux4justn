@@ -423,7 +423,7 @@ assert_contains "$output" "download-source	file://$ROOT	$STDIN_BOOTSTRAP_INSTALL
 assert_contains "$output" "installed-bin	$STDIN_BOOTSTRAP_HOME/.local/bin/c4j"
 [ -x "$STDIN_BOOTSTRAP_HOME/.local/bin/c4j" ] || fail "stdin bootstrap install should create c4j executable"
 
-[ "$($CLI version)" = "0.10.2" ] || fail "version mismatch"
-[ "$("$ROOT/bin/cmux4justn" version)" = "0.10.2" ] || fail "legacy version mismatch"
+[ "$($CLI version)" = "0.11.0" ] || fail "version mismatch"
+[ "$("$ROOT/bin/cmux4justn" version)" = "0.11.0" ] || fail "legacy version mismatch"
 
 printf 'PASS cmux4justn tests\n'

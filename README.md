@@ -20,7 +20,7 @@ It gives cmux users a small workspace manager for adding projects, listing activ
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.2/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.11.0/install.sh | bash
 ```
 
 The installer:
@@ -222,13 +222,13 @@ Prints the CLI version.
 
 ```bash
 # Install a specific release.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.2/install.sh | C4J_REF=v0.10.2 bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.11.0/install.sh | C4J_REF=v0.11.0 bash
 
 # Install from main instead of the release pinned by the bootstrap script.
 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash
 
 # Download source somewhere else.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.2/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.11.0/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
 
 # Preview all installer actions.
 scripts/install.sh --dry-run

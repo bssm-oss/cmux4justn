@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.2 - 2026-06-10
+## v0.11.0 - 2026-06-10
 
 ### Added
 
@@ -9,7 +9,7 @@
 
 ### Changed
 
-- Updated install bootstrap references and release URLs to `v0.10.2`.
+- Updated install bootstrap references and release URLs to `v0.11.0`.
 
 ## v0.10.1 - 2026-06-08
 

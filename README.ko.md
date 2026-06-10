@@ -20,7 +20,7 @@ cmux 사용자가 프로젝트 추가, active 목록 확인, workspace title 동
 ## 설치
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.2/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.11.0/install.sh | bash
 ```
 
 설치 스크립트는 기본적으로 다음 작업을 합니다.
@@ -222,13 +222,13 @@ CLI 버전을 출력합니다.
 
 ```bash
 # 특정 릴리즈를 설치합니다.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.2/install.sh | C4J_REF=v0.10.2 bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.11.0/install.sh | C4J_REF=v0.11.0 bash
 
 # bootstrap script에 고정된 릴리즈 대신 main에서 설치합니다.
 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash
 
 # source 다운로드 위치를 바꿉니다.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.10.2/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.11.0/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
 
 # 설치 작업을 미리 확인합니다.
 scripts/install.sh --dry-run
