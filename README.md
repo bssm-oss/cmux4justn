@@ -12,6 +12,7 @@ It gives cmux users a small workspace manager for adding projects, listing activ
 
 - One-line macOS install with a plain Bash script.
 - Active project registry backed by symlinks in `~/.c4j/active`.
+- Fast project jump with `c4j go <name-or-path>`.
 - cmux workspace sync with configurable title prefixes such as `@active/`.
 - Pinned cmux anchor workspace support through `c4j anchor`.
 - Git worktree creation for the current repo.
@@ -40,6 +41,10 @@ c4j doctor
 ## Quick Start
 
 ```bash
+# Jump to an active project and select or create its cmux workspace.
+c4j go cmux4justn
+c4j go ~/Workspaces/repos/justn-hyeok/cmux4justn
+
 # Add a project and sync cmux.
 c4j add ~/Workspaces/repos/justn-hyeok/cmux4justn
 
@@ -66,9 +71,17 @@ c4j sync --direction both --dry-run
 
 # Apply a full two-way sync.
 c4j sync --direction both --apply
+
+# Show focused help for one command.
+c4j help go
+c4j help wt move
+c4j help agent
 ```
 
 ## Commands
+
+Use `c4j help <command>` or `c4j <command> --help` for focused command help.
+Use `c4j help agent` for automation-friendly output conventions.
 
 ### `c4j add [--dry-run|--apply] <path>...`
 
@@ -78,6 +91,23 @@ With no path, `add` only runs the two-way sync:
 
 ```bash
 c4j add
+```
+
+### `c4j go [--dry-run|--apply] [--no-cmux] <name-or-path>`
+
+Jumps to an active project by name, or to a directory path. If you pass a path that is not active yet, `go` adds it to the active registry first.
+
+`go` defaults to `--apply`. It selects an existing `@active/<project>` cmux workspace, creates one when missing, then prints a `go-project` row. When installed with `scripts/install.sh --rc`, the shell wrapper reads that row and changes the current shell directory to the project.
+
+Use `--no-cmux` when you only want the shell directory jump and active symlink management.
+
+```bash
+c4j go cmux4justn
+c4j go codeagora
+c4j go .
+c4j go ~/Workspaces/repos/justn-hyeok/cmux4justn
+c4j go --dry-run cmux4justn
+c4j go --no-cmux cmux4justn
 ```
 
 ### `c4j anchor [--dry-run|--apply] [--name <title>] [--cwd <path>]`
@@ -112,6 +142,19 @@ Aliases:
 - `remove`
 - `rm`
 
+### `c4j update [--dry-run|--apply] [--ref <ref>] [--repo-url <url>] [--install-dir <path>]`
+
+Updates the installed `c4j` binary by fetching the latest tagged release from the source repository and reinstalling from that checkout.
+
+By default it looks for the latest `v*` tag in `https://github.com/bssm-oss/cmux4justn.git` and reinstalls from `~/.local/share/c4j`.
+Use `--ref` to pin a specific tag or branch, `--repo-url` to point at another git remote, and `--install-dir` to override the local source checkout path.
+
+```bash
+c4j update
+c4j update --dry-run
+c4j update --ref v0.12.0
+```
+
 ### `c4j worktree [--dry-run|--apply] [--repo <path>] [--name <name>]`
 
 Creates a git worktree for the current repo under `~/Workspaces/worktrees`, mirroring the canonical repo path under `~/Workspaces/repos`.
@@ -123,15 +166,16 @@ The default worktree name is `<repo>-<branch>`. If that name already exists, `c4
 `worktree` defaults to `--apply`. `wt`, `pane`, and `make-pane` are aliases.
 When you use the shell wrapper installed by `scripts/install.sh`, a successful `c4j wt ...` also changes the current shell directory to the created or reused worktree.
 `c4j wt list` shows worktrees for the current cmux workspace when one is active, otherwise it shows every managed worktree it can discover.
-`c4j wt delete` removes a named worktree, and `c4j wt update` pulls a named or current worktree forward with `--ff-only`.
+`c4j wt prune` prunes stale worktree metadata for the current workspace scope, and `c4j wt move` moves a named or current worktree to a new path.
+`c4j wt delete` and `c4j wt update` remain as compatibility aliases for the older naming.
 
 ```bash
 c4j worktree
 c4j worktree --dry-run
 c4j wt for-feature1
 c4j wt list
-c4j wt delete api
-c4j wt update api
+c4j wt prune
+c4j wt move api api-v2
 c4j worktree --repo ~/Workspaces/repos/bssm-oss/main/justn-hyeok/cmux4justn
 c4j worktree --name api
 ```
@@ -264,6 +308,9 @@ Environment overrides:
 - `C4J_ACTIVE_DIR`: default active-project registry
 - `C4J_CONFIG`: config file path
 - `C4J_SHELL_RC`: shell rc file used by `--rc`
+- `C4J_REPO_URL`: source remote used by `c4j update`
+- `C4J_INSTALL_DIR`: local source checkout used by `c4j update`
+- `C4J_UPDATE_REF`: optional ref override used by `c4j update`
 
 ## Runtime Defaults
 

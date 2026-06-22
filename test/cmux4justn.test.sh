@@ -29,6 +29,39 @@ assert_not_contains() {
   fi
 }
 
+output="$($CLI)"
+assert_contains "$output" "c4j v0.12.0"
+assert_contains "$output" "I want to:"
+assert_contains "$output" "go <project>"
+assert_contains "$output" "wt [name]"
+assert_contains "$output" "sync --apply"
+assert_contains "$output" "c4j help agent"
+assert_contains "$output" "Tip: add --dry-run"
+assert_not_contains "$output" "Environment:"
+assert_not_contains "$output" "C4J_ACTIVE_DIR"
+
+output="$($CLI help go)"
+assert_contains "$output" "c4j go <project-or-folder>"
+assert_contains "$output" "Open a project."
+assert_not_contains "$output" "Environment:"
+
+output="$($CLI go --help)"
+assert_contains "$output" "c4j go <project-or-folder>"
+assert_not_contains "$output" "I want to:"
+
+output="$($CLI help wt list)"
+assert_contains "$output" "c4j wt list"
+
+output="$($CLI help agent)"
+assert_contains "$output" "For agents and scripts:"
+assert_contains "$output" "c4j list --plain"
+assert_contains "$output" "Parse action rows by the first tab-separated field"
+assert_contains "$output" "output is plain text"
+
+output="$($CLI doctor --help)"
+assert_contains "$output" "c4j doctor"
+assert_contains "$output" "Run this when c4j feels weird."
+
 ACTIVE="$TMPDIR/@active"
 PROJECTS="$TMPDIR/projects"
 mkdir -p "$ACTIVE" "$PROJECTS/alpha" "$PROJECTS/beta" "$PROJECTS/gamma" "$PROJECTS/delta" "$PROJECTS/legacy" "$PROJECTS/unsafe"
@@ -86,7 +119,7 @@ JSON
 fi
 
 case "${1:-}" in
-  new-workspace|close-workspace|workspace-action|new-pane|send|send-key)
+  new-workspace|close-workspace|select-workspace|workspace-action|new-pane|send|send-key)
     printf '%s\n' "$*" >> "$CMUX_FAKE_CALLS"
     ;;
   *)
@@ -97,7 +130,7 @@ esac
 FAKE
 chmod +x "$FAKE_CMUX"
 export CMUX_FAKE_CALLS="$CALLS"
-export CMUX_TEST_PROJECTS="$PROJECTS"
+export CMUX_TEST_PROJECTS="$PROJECTS_RESOLVED"
 export C4J_ACTIVE_DIR="$ACTIVE"
 export C4J_CMUX_BIN="$FAKE_CMUX"
 
@@ -145,8 +178,8 @@ REMOTE_REPO="$TMPDIR/remote.git"
 git init --bare "$REMOTE_REPO" >/dev/null
 git -C "$WORKTREE_REPO" remote add origin "$REMOTE_REPO"
 git -C "$WORKTREE_REPO" push -u origin main >/dev/null
-WORKTREE_HOME_RESOLVED="$(cd "$TMPDIR/home" && pwd -P)"
-WORKTREE_ROOT_RESOLVED="$WORKTREE_HOME_RESOLVED/Workspaces/worktrees/bssm-oss/main/justn-hyeok/cmux4justn"
+WORKTREE_REPO_RESOLVED="$(git -C "$WORKTREE_REPO" rev-parse --show-toplevel)"
+WORKTREE_ROOT_RESOLVED="${WORKTREE_REPO_RESOLVED%%/repos/*}/worktrees/bssm-oss/main/justn-hyeok/cmux4justn"
 CMUX_WORKSPACE_ROOT="$TMPDIR/cmux-workspace"
 mkdir -p "$CMUX_WORKSPACE_ROOT"
 WORKTREE_OLDPWD="$PWD"
@@ -181,6 +214,10 @@ output="$($CLI worktree --apply --name api)"
 assert_contains "$output" "create-worktree	api	$WORKTREE_ROOT_RESOLVED/api	worktree/api"
 [ -d "$WORKTREE_ROOT_RESOLVED/api" ] || fail "named worktree apply should create explicit worktree"
 
+output="$($CLI worktree --apply --name prune-me)"
+assert_contains "$output" "create-worktree	prune-me	$WORKTREE_ROOT_RESOLVED/prune-me	worktree/prune-me"
+[ -d "$WORKTREE_ROOT_RESOLVED/prune-me" ] || fail "prune test worktree should be created"
+
 output="$($CLI worktree --dry-run --name docs)"
 assert_contains "$output" "would-create-worktree	docs	$WORKTREE_ROOT_RESOLVED/docs	worktree/docs"
 output="$($CLI wt for-feature1 --dry-run)"
@@ -199,7 +236,8 @@ git -C "$OTHER_REPO" config user.email "test@example.com"
 printf 'other\n' > "$OTHER_REPO/README.md"
 git -C "$OTHER_REPO" add README.md
 git -C "$OTHER_REPO" commit -m "init" >/dev/null
-OTHER_WORKTREE_ROOT_RESOLVED="$WORKTREE_HOME_RESOLVED/Workspaces/worktrees/bssm-oss/main/justn-hyeok/otherrepo"
+OTHER_REPO_RESOLVED="$(git -C "$OTHER_REPO" rev-parse --show-toplevel)"
+OTHER_WORKTREE_ROOT_RESOLVED="${OTHER_REPO_RESOLVED%%/repos/*}/worktrees/bssm-oss/main/justn-hyeok/otherrepo"
 output="$($CLI wt --repo "$OTHER_REPO" other-feature)"
 assert_contains "$output" "create-worktree	other-feature	$OTHER_WORKTREE_ROOT_RESOLVED/other-feature	worktree/other-feature"
 [ -d "$OTHER_WORKTREE_ROOT_RESOLVED/other-feature" ] || fail "other repo worktree should create explicit worktree"
@@ -209,9 +247,22 @@ assert_contains "$output" "otherrepo"
 assert_contains "$output" "other-feature"
 assert_contains "$output" "cmux4justn"
 
-output="$($CLI wt delete api)"
-assert_contains "$output" "delete-worktree	api	$WORKTREE_ROOT_RESOLVED/api	worktree/api"
-[ ! -d "$WORKTREE_ROOT_RESOLVED/api" ] || fail "delete should remove the named worktree"
+output="$($CLI wt move api api-v2)"
+assert_contains "$output" "move-worktree	api	$WORKTREE_ROOT_RESOLVED/api	$WORKTREE_ROOT_RESOLVED/api-v2	worktree/api"
+[ ! -d "$WORKTREE_ROOT_RESOLVED/api" ] || fail "move should remove the original worktree path"
+[ -d "$WORKTREE_ROOT_RESOLVED/api-v2" ] || fail "move should create the destination worktree path"
+assert_contains "$(git -C "$WORKTREE_ROOT_RESOLVED/api-v2" branch --show-current)" "worktree/api"
+
+rm -rf "$WORKTREE_ROOT_RESOLVED/prune-me"
+output="$($CLI wt prune)"
+assert_contains "$output" "prune-worktree-repo	cmux4justn	$WORKTREE_REPO_RESOLVED"
+[ ! -e "$WORKTREE_ROOT_RESOLVED/prune-me" ] || fail "prune should not recreate stale worktree paths"
+output="$($CLI wt list)"
+assert_not_contains "$output" "prune-me"
+
+output="$($CLI wt delete api-v2)"
+assert_contains "$output" "delete-worktree	api-v2	$WORKTREE_ROOT_RESOLVED/api-v2	worktree/api"
+[ ! -d "$WORKTREE_ROOT_RESOLVED/api-v2" ] || fail "delete should remove the moved worktree"
 
 before_update_head="$(git -C "$WORKTREE_ROOT_RESOLVED/cmux4justn-main" rev-parse HEAD)"
 printf 'world\n' >> "$WORKTREE_REPO/README.md"
@@ -232,6 +283,7 @@ output="$(env HOME="$TMPDIR/home" bash "$ROOT/scripts/install.sh" --dry-run --no
 assert_contains "$output" "would-update-rc	$INSTALL_RC"
 assert_contains "$output" "c4j()"
 assert_contains "$output" "builtin cd --"
+assert_contains "$output" "move-worktree"
 
 output="$($CLI sync --direction cmux-to-active --dry-run)"
 assert_contains "$output" "skip existing-link	@active/alpha"
@@ -295,6 +347,31 @@ output="$($CLI rm --apply --keep-cmux "$PROJECTS/gamma")"
 assert_contains "$output" "unlink	gamma	$ACTIVE/gamma"
 assert_contains "$output" "skip cmux-kept	@active/gamma"
 [ ! -e "$CALLS" ] || fail "delete --keep-cmux should not call cmux"
+
+rm -f "$CALLS"
+output="$($CLI go --dry-run alpha)"
+assert_contains "$output" "would-select-workspace	@active/alpha	workspace:1"
+assert_contains "$output" "would-go-project	alpha	$PROJECTS_RESOLVED/alpha"
+[ ! -e "$CALLS" ] || fail "go dry-run should not call cmux"
+
+output="$($CLI go alpha)"
+assert_contains "$output" "select-workspace	@active/alpha	workspace:1"
+assert_contains "$output" "go-project	alpha	$PROJECTS_RESOLVED/alpha"
+assert_contains "$(cat "$CALLS")" "select-workspace --workspace workspace:1"
+
+rm -f "$CALLS"
+output="$($CLI go beta)"
+assert_contains "$output" "create-workspace	@active/beta	$PROJECTS_RESOLVED/beta"
+assert_contains "$output" "go-project	beta	$PROJECTS_RESOLVED/beta"
+assert_contains "$(cat "$CALLS")" "new-workspace --name @active/beta --cwd $PROJECTS_RESOLVED/beta --focus true"
+
+rm -f "$CALLS"
+output="$($CLI go --no-cmux "$PROJECTS/legacy")"
+assert_contains "$output" "link	$ACTIVE/legacy	$PROJECTS_RESOLVED/legacy"
+assert_contains "$output" "skip cmux-disabled	@active/legacy"
+assert_contains "$output" "go-project	legacy	$PROJECTS_RESOLVED/legacy"
+[ -L "$ACTIVE/legacy" ] || fail "go path should add a missing active link"
+[ ! -e "$CALLS" ] || fail "go --no-cmux should not call cmux"
 
 output="$($CLI list)"
 assert_contains "$output" "PROJECT"
@@ -485,6 +562,26 @@ output="$(HOME="$STDIN_BOOTSTRAP_HOME" C4J_REPO_URL="file://$ROOT" C4J_REF="main
 assert_contains "$output" "download-source	file://$ROOT	$STDIN_BOOTSTRAP_INSTALL_DIR"
 assert_contains "$output" "installed-bin	$STDIN_BOOTSTRAP_HOME/.local/bin/c4j"
 [ -x "$STDIN_BOOTSTRAP_HOME/.local/bin/c4j" ] || fail "stdin bootstrap install should create c4j executable"
+
+UPDATE_SOURCE="$TMPDIR/update-source"
+UPDATE_REMOTE="$TMPDIR/update-remote.git"
+UPDATE_INSTALL_DIR="$TMPDIR/update-install"
+UPDATE_BIN_DIR="$TMPDIR/update-bin"
+git clone "$ROOT" "$UPDATE_SOURCE" >/dev/null
+git -C "$UPDATE_SOURCE" config user.name "Test User"
+git -C "$UPDATE_SOURCE" config user.email "test@example.com"
+sed -i '' 's/^VERSION="0\.12\.0"/VERSION="9.9.9"/' "$UPDATE_SOURCE/bin/cmux4justn"
+sed -i '' 's/^0\.12\.0$/9.9.9/' "$UPDATE_SOURCE/VERSION"
+git -C "$UPDATE_SOURCE" add VERSION bin/cmux4justn
+git -C "$UPDATE_SOURCE" commit -m "bump test version" >/dev/null
+git -C "$UPDATE_SOURCE" tag v9.9.9
+git clone --bare "$UPDATE_SOURCE" "$UPDATE_REMOTE" >/dev/null
+output="$(C4J_REPO_URL="file://$UPDATE_REMOTE" C4J_BIN_DIR="$UPDATE_BIN_DIR" "$CLI" update --dry-run --ref v9.9.9 --install-dir "$UPDATE_INSTALL_DIR")"
+assert_contains "$output" "would-update-source	$UPDATE_INSTALL_DIR	v9.9.9"
+assert_contains "$output" "would-install-bin	$UPDATE_BIN_DIR/c4j"
+output="$(C4J_REPO_URL="file://$UPDATE_REMOTE" C4J_BIN_DIR="$UPDATE_BIN_DIR" "$CLI" update --ref v9.9.9 --install-dir "$UPDATE_INSTALL_DIR")"
+assert_contains "$output" "update-cli	v9.9.9	$UPDATE_INSTALL_DIR"
+[ "$("$UPDATE_BIN_DIR/c4j" version)" = "9.9.9" ] || fail "update should install the tagged version"
 
 [ "$($CLI version)" = "0.12.0" ] || fail "version mismatch"
 [ "$("$ROOT/bin/cmux4justn" version)" = "0.12.0" ] || fail "legacy version mismatch"

@@ -186,8 +186,14 @@ WRAPPER_FUNCTION="c4j() {
     return \"\$c4j_status\"
   fi
   case \"\${1:-}\" in
+    go)
+      c4j_worktree_path=\$(printf '%s\n' \"\$c4j_output\" | awk -F '\\t' '\$1 == \"go-project\" { print \$3; exit }')
+      if [ -n \"\$c4j_worktree_path\" ] && [ -d \"\$c4j_worktree_path\" ]; then
+        builtin cd -- \"\$c4j_worktree_path\"
+      fi
+      ;;
     worktree|wt|pane|make-pane)
-      c4j_worktree_path=\$(printf '%s\n' \"\$c4j_output\" | awk -F '\\t' '(\$1 == \"create-worktree\" || \$1 == \"reuse-worktree\") { print \$3; exit }')
+      c4j_worktree_path=\$(printf '%s\n' \"\$c4j_output\" | awk -F '\\t' '(\$1 == \"create-worktree\" || \$1 == \"reuse-worktree\") { print \$3; exit } \$1 == \"move-worktree\" { print \$4; exit }')
       if [ -n \"\$c4j_worktree_path\" ] && [ -d \"\$c4j_worktree_path\" ]; then
         builtin cd -- \"\$c4j_worktree_path\"
       fi
@@ -292,7 +298,9 @@ completion_present=0
 if grep -F "alias c4j=" "$SHELL_RC" >/dev/null 2>&1; then
   alias_present=1
 fi
-if grep -F "$MARKER_START" "$SHELL_RC" >/dev/null 2>&1 && grep -F "builtin cd --" "$SHELL_RC" >/dev/null 2>&1; then
+if grep -F "$MARKER_START" "$SHELL_RC" >/dev/null 2>&1 &&
+  grep -F "go-project" "$SHELL_RC" >/dev/null 2>&1 &&
+  grep -F "move-worktree" "$SHELL_RC" >/dev/null 2>&1; then
   wrapper_present=1
 fi
 if grep -F "$COMPLETION_MARKER_START" "$SHELL_RC" >/dev/null 2>&1; then
@@ -306,13 +314,10 @@ if [ "$wrapper_present" -eq 1 ] && [ "$completion_present" -eq 1 ]; then
 fi
 
 if grep -F "$MARKER_START" "$SHELL_RC" >/dev/null 2>&1; then
-  if [ "$wrapper_present" -eq 0 ] && [ "$alias_present" -eq 1 ]; then
+  if [ "$wrapper_present" -eq 0 ]; then
     write_wrapper_block "$SHELL_RC"
     wrapper_present=1
     printf 'updated-rc\t%s\n' "$SHELL_RC"
-  elif [ "$wrapper_present" -eq 0 ]; then
-    printf 'error: c4j marker exists but wrapper differs: %s\n' "$SHELL_RC" >&2
-    exit 1
   fi
 fi
 

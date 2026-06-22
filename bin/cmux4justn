@@ -2,6 +2,7 @@
 set -euo pipefail
 
 VERSION="0.12.0"
+DEFAULT_REPO_URL="https://github.com/bssm-oss/cmux4justn.git"
 DEFAULT_ACTIVE_DIR="${HOME:-/Users/justn}/.c4j/active"
 DEFAULT_ANCHOR_DIR="${HOME:-/Users/justn}/Workspaces"
 DEFAULT_WORKTREE_DIR="${HOME:-/Users/justn}/Workspaces/worktrees"
@@ -23,51 +24,295 @@ NAME_PREFIX="${C4J_NAME_PREFIX:-${CMUX4JUSTN_NAME_PREFIX:-${CONFIG_NAME_PREFIX:-
 WORKTREE_DIR="${C4J_WORKTREE_DIR:-${CMUX4JUSTN_WORKTREE_DIR:-$DEFAULT_WORKTREE_DIR}}"
 
 usage() {
-  cat <<'USAGE'
-c4j v0.12.0 - tiny active-project <-> cmux sync
+  cat <<USAGE
+c4j v$VERSION - project switcher for cmux
 
-Usage:
-  c4j add [--dry-run|--apply] <path>...
-  c4j anchor [--dry-run|--apply] [--name <title>] [--cwd <path>]
-  c4j delete [--dry-run|--apply] [--keep-cmux] <name-or-path>...
-  c4j worktree [--dry-run|--apply] [--repo <path>] [<name>]
-  c4j worktree list [--repo <path>] [--plain]
-  c4j worktree delete [--dry-run|--apply] [--repo <path>] [<name-or-path>]
-  c4j worktree update [--dry-run|--apply] [--repo <path>] [<name-or-path>]
-  c4j setup [--dry-run|--apply] [--active-dir <path>] [--name-prefix <prefix>]
-  c4j sync [--dry-run|--apply] [--direction active-to-cmux|cmux-to-active|both]
-  c4j list [--plain]
-  c4j config get
-  c4j config set active-dir <path>
-  c4j config set name-prefix <prefix>
-  c4j config unset active-dir
-  c4j config unset name-prefix
-  c4j config path
-  c4j doctor
-  c4j version
+I want to:
+  c4j go <project>      open a project and focus its cmux workspace
+  c4j wt [name]         make a worktree for the current repo
+  c4j list              show active projects
+  c4j sync --apply      sync active projects to cmux
 
-Defaults:
-  add  => --apply, then sync --direction both
-  anchor => --apply, ensure a pinned cmux workspace at ~/Workspaces
-  delete => --apply, remove active symlink and close matching cmux workspace
-  worktree => --apply, create a git worktree for the current repo or cmux workspace
-  worktree list => --plain, show worktrees for the current cmux workspace or all managed repos
-  worktree delete => --apply, remove the targeted worktree
-  worktree update => --apply, pull the targeted worktree forward with --ff-only
-  setup => --apply, set name-prefix to @active/
-  sync => --dry-run --direction active-to-cmux
+Set up or fix:
+  c4j setup             use the normal @active/ setup
+  c4j doctor            check what is broken
+  c4j update            update c4j
 
-Environment:
-  C4J_ACTIVE_DIR   default: ~/.c4j/active
-  C4J_CMUX_BIN     default: cmux from PATH or /Applications/cmux.app/Contents/Resources/bin/cmux
-  C4J_NAME_PREFIX  default: @active/
-  C4J_ANCHOR_DIR   default: ~/Workspaces
-  C4J_WORKTREE_DIR default: ~/Workspaces/worktrees
-  C4J_CONFIG       default: ~/.c4j/config
+More help:
+  c4j help go
+  c4j help wt
+  c4j help agent
+  c4j help config
+  c4j help sync
 
-Compatibility:
-  bin/cmux4justn and CMUX4JUSTN_* environment variables still work.
+Tip: add --dry-run before risky changes.
 USAGE
+}
+
+command_help() {
+  local topic="${1:-}"
+
+  case "$topic" in
+    ""|help)
+      usage
+      ;;
+    add)
+      cat <<'USAGE'
+c4j add <folder>...
+
+Add folders to c4j, then sync them to cmux.
+With no folder, this just runs a two-way sync.
+
+Try:
+  c4j add .
+  c4j add ~/Workspaces/repos/example
+  c4j add --dry-run .
+
+Notes:
+  default is --apply
+  --dry-run previews without changing anything
+USAGE
+      ;;
+    go)
+      cat <<'USAGE'
+c4j go <project-or-folder>
+
+Open a project. You can pass an active project name or a folder path.
+c4j also focuses the matching cmux workspace, or creates it if missing.
+
+Try:
+  c4j go cmux4justn
+  c4j go .
+  c4j go --no-cmux codeagora
+
+Options:
+  --dry-run   show what would happen
+  --no-cmux   only manage the project link; do not touch cmux
+USAGE
+      ;;
+    anchor)
+      cat <<'USAGE'
+c4j anchor
+
+Create or repair the pinned cmux workspace for ~/Workspaces.
+You usually only run this once.
+
+Try:
+  c4j anchor
+  c4j anchor --dry-run
+  c4j anchor --name justn-is-always-around-here --cwd ~/Workspaces
+USAGE
+      ;;
+    delete|remove|rm)
+      cat <<'USAGE'
+c4j delete <project>...
+
+Remove projects from c4j and close their matching cmux workspaces.
+
+Try:
+  c4j delete old-project
+  c4j delete --dry-run old-project
+  c4j delete --keep-cmux old-project
+
+Options:
+  --keep-cmux  remove the c4j link but leave the cmux workspace open
+USAGE
+      ;;
+    setup)
+      cat <<'USAGE'
+c4j setup
+
+Write the normal local defaults. This sets cmux workspace names to @active/*.
+
+Try:
+  c4j setup
+  c4j setup --dry-run
+  c4j setup --active-dir ~/.c4j/active
+USAGE
+      ;;
+    sync)
+      cat <<'USAGE'
+c4j sync
+
+Make c4j and cmux match.
+By default this is a preview from c4j -> cmux.
+
+Try:
+  c4j sync
+  c4j sync --apply
+  c4j sync --direction both --apply
+
+Directions:
+  active-to-cmux  c4j list -> cmux workspaces
+  cmux-to-active  cmux workspaces -> c4j list
+  both            do both
+USAGE
+      ;;
+    list|ls)
+      cat <<'USAGE'
+c4j list
+
+Show projects c4j knows about.
+
+Try:
+  c4j list
+  c4j list --plain
+
+Option:
+  --plain  print tab-separated rows for scripts
+USAGE
+      ;;
+    config)
+      cat <<'USAGE'
+c4j config
+
+Read or change c4j's local config.
+
+Try:
+  c4j config get
+  c4j config set active-dir ~/.c4j/active
+  c4j config set name-prefix @active/
+  c4j config unset active-dir
+  c4j config path
+USAGE
+      ;;
+    agent|agents|script|scripts|automation|ax)
+      cat <<'USAGE'
+c4j help agent
+
+For agents and scripts:
+
+Use previews before changes:
+  c4j sync --dry-run
+  c4j delete --dry-run <project>
+  c4j wt move --dry-run <worktree> <new-name>
+
+Prefer plain output when reading lists:
+  c4j list --plain
+  c4j wt list --plain
+
+Parse action rows by the first tab-separated field:
+  go-project       <name> <path>
+  create-worktree  <name> <path> <branch>
+  reuse-worktree   <name> <path>
+  summary          key=value ...
+
+Conventions:
+  --help and -h print help to stdout
+  --version and version print only the version
+  output is plain text: no colors, icons, spinners, or box drawing
+  commands are non-interactive; use --apply or --dry-run explicitly
+USAGE
+      ;;
+    doctor)
+      cat <<'USAGE'
+c4j doctor
+
+Check whether c4j can find its config, active-project folder, and cmux.
+Run this when c4j feels weird.
+USAGE
+      ;;
+    update)
+      cat <<'USAGE'
+c4j update
+
+Update the installed c4j command.
+By default it installs the latest v* release.
+
+Try:
+  c4j update
+  c4j update --dry-run
+  c4j update --ref v0.12.0
+USAGE
+      ;;
+    worktree|wt|pane|make-pane)
+      cat <<'USAGE'
+c4j wt [name]
+
+Make a git worktree for the current repo.
+If you are inside cmux, c4j can infer the repo from the workspace.
+
+Try:
+  c4j wt
+  c4j wt feature-api
+  c4j wt --dry-run
+  c4j wt list
+
+More:
+  c4j help wt list
+  c4j help wt move
+  c4j help wt delete
+USAGE
+      ;;
+    "worktree list"|"wt list"|worktree-list|wt-list)
+      cat <<'USAGE'
+c4j wt list
+
+Show managed worktrees.
+Inside cmux, this usually shows worktrees for the current workspace repo.
+
+Try:
+  c4j wt list
+  c4j wt list --plain
+USAGE
+      ;;
+    "worktree prune"|"wt prune"|worktree-prune|wt-prune)
+      cat <<'USAGE'
+c4j wt prune
+
+Clean stale git worktree metadata.
+
+Try:
+  c4j wt prune
+  c4j wt prune --dry-run
+USAGE
+      ;;
+    "worktree move"|"wt move"|worktree-move|wt-move)
+      cat <<'USAGE'
+c4j wt move <worktree> <new-name-or-path>
+
+Move a managed worktree.
+
+Try:
+  c4j wt move api api-v2
+  c4j wt move --dry-run api api-v2
+USAGE
+      ;;
+    "worktree delete"|"wt delete"|worktree-delete|wt-delete)
+      cat <<'USAGE'
+c4j wt delete [worktree]
+
+Remove a managed worktree.
+If you are inside the worktree, you can omit the name.
+
+Try:
+  c4j wt delete api
+  c4j wt delete --dry-run api
+USAGE
+      ;;
+    "worktree update"|"wt update"|worktree-update|wt-update)
+      cat <<'USAGE'
+c4j wt update [worktree]
+
+Fetch and fast-forward a managed worktree.
+If you are inside the worktree, you can omit the name.
+
+Try:
+  c4j wt update api
+  c4j wt update --dry-run api
+USAGE
+      ;;
+    version|--version|-v)
+      cat <<'USAGE'
+c4j version
+
+Print the installed c4j version.
+USAGE
+      ;;
+    *)
+      fail "unknown help topic: $topic (try: c4j help)"
+      ;;
+  esac
 }
 
 fail() {
@@ -512,6 +757,104 @@ worktree_update_target_path() {
   return 1
 }
 
+update_latest_release_ref() {
+  local repo_url="$1"
+  local ref ls_remote_output
+
+  if command -v python3 >/dev/null 2>&1; then
+    ls_remote_output="$(git ls-remote --tags --refs "$repo_url" 'v*' 2>/dev/null)"
+    ref="$(LS_REMOTE_OUTPUT="$ls_remote_output" python3 - <<'PY'
+import re
+import os
+import sys
+
+tags = []
+for line in os.environ.get("LS_REMOTE_OUTPUT", "").splitlines():
+    parts = line.rstrip("\n").split("\t")
+    if len(parts) >= 2 and parts[1].startswith("refs/tags/"):
+        tags.append(parts[1][len("refs/tags/"):])
+
+def version_key(tag: str):
+    core = tag[1:] if tag.startswith("v") else tag
+    parts = []
+    for chunk in core.split("."):
+        match = re.match(r"(\d+)", chunk)
+        parts.append(int(match.group(1)) if match else -1)
+    return parts
+
+if tags:
+    print(sorted(tags, key=version_key)[-1])
+PY
+    )"
+  else
+    ref="$(git ls-remote --tags --refs "$repo_url" 'v*' 2>/dev/null | awk '{ print $2 }' | sed 's#refs/tags/##' | tail -n 1)"
+  fi
+  [ -n "$ref" ] || return 1
+  printf '%s\n' "$ref"
+}
+
+update_source_checkout() {
+  local install_dir="$1"
+  local repo_url="$2"
+  local ref="$3"
+
+  if [ -d "$install_dir/.git" ]; then
+    git -C "$install_dir" fetch -q --depth 1 origin "$ref"
+    git -C "$install_dir" -c advice.detachedHead=false checkout -q -f FETCH_HEAD
+  else
+    mkdir -p "$(dirname "$install_dir")"
+    git clone -q --depth 1 --no-checkout "$repo_url" "$install_dir"
+    git -C "$install_dir" fetch -q --depth 1 origin "$ref"
+    git -C "$install_dir" -c advice.detachedHead=false checkout -q FETCH_HEAD
+  fi
+}
+
+worktree_base_path_for_root() {
+  local canonical_root="$1"
+  local repo_slug relative_repo_path repos_root
+
+  case "$canonical_root" in
+    */Workspaces/repos/*)
+      repos_root="${canonical_root%%/Workspaces/repos/*}/Workspaces/repos"
+      relative_repo_path="${canonical_root#"$repos_root"/}"
+      printf '%s\n' "${repos_root%/repos}/worktrees/$relative_repo_path"
+      ;;
+    *)
+      repo_slug="$(slugify_name "$(basename "$canonical_root")")" || return 1
+      printf '%s\n' "$WORKTREE_DIR/external/$repo_slug"
+      ;;
+  esac
+}
+
+worktree_move_destination_path() {
+  local repo_root="$1"
+  local destination="$2"
+  local canonical_root worktree_base parent resolved_parent
+
+  case "$destination" in
+    ~) destination="$HOME" ;;
+    ~/*) destination="$HOME/${destination#~/}" ;;
+  esac
+
+  case "$destination" in
+    /*)
+      printf '%s\n' "$destination"
+      return 0
+      ;;
+    */*)
+      parent="$(dirname "$destination")"
+      [ -d "$parent" ] || return 1
+      resolved_parent="$(cd "$parent" && pwd -P)" || return 1
+      printf '%s/%s\n' "$resolved_parent" "$(basename "$destination")"
+      return 0
+      ;;
+  esac
+
+  canonical_root="$(canonical_git_root "$repo_root")" || return 1
+  worktree_base="$(worktree_base_path_for_root "$canonical_root")" || return 1
+  printf '%s/%s\n' "$worktree_base" "$(slugify_name "$destination")"
+}
+
 workspace_title_exists() {
   local inventory_file="$1"
   local title="$2"
@@ -522,6 +865,12 @@ workspace_ref_for_title() {
   local inventory_file="$1"
   local title="$2"
   awk -F '\t' -v title="$title" '$1 == title { print $3; found = 1; exit } END { exit found ? 0 : 1 }' "$inventory_file"
+}
+
+workspace_cwd_for_title() {
+  local inventory_file="$1"
+  local title="$2"
+  awk -F '\t' -v title="$title" '$1 == title { print $2; found = 1; exit } END { exit found ? 0 : 1 }' "$inventory_file"
 }
 
 print_apply_hint() {
@@ -630,7 +979,7 @@ cmd_config() {
       printf '%s\n' "$CONFIG_FILE"
       ;;
     -h|--help|help)
-      usage
+      command_help config
       ;;
     *)
       fail "unknown config command: $subcommand"
@@ -668,7 +1017,7 @@ cmd_setup() {
         shift 2
         ;;
       -h|--help)
-        usage
+        command_help setup
         exit 0
         ;;
       *)
@@ -723,7 +1072,7 @@ cmd_add() {
         shift
         ;;
       -h|--help)
-        usage
+        command_help add
         exit 0
         ;;
       --)
@@ -781,6 +1130,173 @@ cmd_add() {
   cmd_sync --direction both "--$mode"
 }
 
+active_name_for_query() {
+  local query="$1"
+  local query_lower matches_file
+
+  is_safe_name "$query" || return 1
+
+  if [ -L "$ACTIVE_DIR/$query" ]; then
+    printf '%s\n' "$query"
+    return 0
+  fi
+
+  query_lower="$(printf '%s\n' "$query" | tr '[:upper:]' '[:lower:]')"
+  matches_file="$(mktemp)"
+  # shellcheck disable=SC2064
+  trap "rm -f '$matches_file'" RETURN
+
+  shopt -s nullglob
+  local link name name_lower
+  for link in "$ACTIVE_DIR"/*; do
+    [ -L "$link" ] || continue
+    name="$(basename "$link")"
+    name_lower="$(printf '%s\n' "$name" | tr '[:upper:]' '[:lower:]')"
+    if [ "$name_lower" = "$query_lower" ]; then
+      printf '%s\n' "$name" >> "$matches_file"
+    fi
+  done
+  shopt -u nullglob
+
+  local match_count
+  match_count="$(wc -l < "$matches_file" | tr -d ' ')"
+  [ "$match_count" -eq 1 ] || return 1
+  cat "$matches_file"
+}
+
+cmd_go() {
+  local mode="apply"
+  local cmux_enabled=1
+  local cmux_bin
+  local query=""
+  cmux_bin="$(find_cmux)"
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --dry-run)
+        mode="dry-run"
+        shift
+        ;;
+      --apply)
+        mode="apply"
+        shift
+        ;;
+      --no-cmux)
+        cmux_enabled=0
+        shift
+        ;;
+      --active-dir)
+        [ "$#" -ge 2 ] || fail "--active-dir requires a path"
+        ACTIVE_DIR="$2"
+        shift 2
+        ;;
+      --cmux)
+        [ "$#" -ge 2 ] || fail "--cmux requires a path"
+        cmux_bin="$2"
+        shift 2
+        ;;
+      --name-prefix)
+        [ "$#" -ge 2 ] || fail "--name-prefix requires text"
+        NAME_PREFIX="$2"
+        shift 2
+        ;;
+      -h|--help)
+        command_help go
+        exit 0
+        ;;
+      --)
+        shift
+        [ "$#" -eq 1 ] || fail "go requires exactly one name or path"
+        query="$1"
+        shift
+        ;;
+      --*)
+        fail "unknown go option: $1"
+        ;;
+      *)
+        [ -z "$query" ] || fail "go requires exactly one name or path"
+        query="$1"
+        shift
+        ;;
+    esac
+  done
+
+  [ -n "$query" ] || fail "go requires a name or path"
+  [ -d "$ACTIVE_DIR" ] || fail "active directory not found: $ACTIVE_DIR"
+
+  local target name link existing added_link=0 workspace_name
+  if target="$(resolve_dir "$query" 2>/dev/null)"; then
+    name="$(basename "$target")"
+  else
+    name="$(active_name_for_query "$query" 2>/dev/null)" || fail "active project not found: $query"
+    target="$(resolve_dir "$ACTIVE_DIR/$name")" || fail "active link is broken: $ACTIVE_DIR/$name"
+  fi
+
+  is_safe_name "$name" || fail "unsafe active name: $name"
+  link="$ACTIVE_DIR/$name"
+  workspace_name="${NAME_PREFIX}${name}"
+
+  if [ -L "$link" ]; then
+    existing="$(resolve_dir "$link")" || fail "existing active link is broken: $link"
+    [ "$existing" = "$target" ] || fail "active link already points elsewhere: $link -> $existing"
+  elif [ -e "$link" ]; then
+    fail "active path already exists and is not a symlink: $link"
+  elif [ "$mode" = "dry-run" ]; then
+    printf 'would-link\t%s\t%s\n' "$link" "$target"
+    added_link=1
+  else
+    ln -s "$target" "$link"
+    printf 'link\t%s\t%s\n' "$link" "$target"
+    added_link=1
+  fi
+
+  if [ "$cmux_enabled" -eq 1 ]; then
+    local inventory_file inventory_loaded=0 workspace_ref workspace_cwd
+    inventory_file="$(mktemp)"
+    # shellcheck disable=SC2064
+    trap "rm -f '$inventory_file'" RETURN
+
+    if load_cmux_inventory "$cmux_bin" "$inventory_file"; then
+      inventory_loaded=1
+    fi
+
+    if [ "$inventory_loaded" -eq 1 ]; then
+      workspace_ref="$(workspace_ref_for_title "$inventory_file" "$workspace_name" 2>/dev/null || true)"
+      workspace_cwd="$(workspace_cwd_for_title "$inventory_file" "$workspace_name" 2>/dev/null || true)"
+      if [ -n "$workspace_ref" ] && [ "$workspace_cwd" != "$target" ]; then
+        fail "workspace already points elsewhere: $workspace_name -> $workspace_cwd"
+      fi
+
+      if [ -n "$workspace_ref" ]; then
+        if [ "$mode" = "dry-run" ]; then
+          printf 'would-select-workspace\t%s\t%s\n' "$workspace_name" "$workspace_ref"
+        else
+          "$cmux_bin" select-workspace --workspace "$workspace_ref" >/dev/null
+          printf 'select-workspace\t%s\t%s\n' "$workspace_name" "$workspace_ref"
+        fi
+      elif [ "$mode" = "dry-run" ]; then
+        printf 'would-create-workspace\t%s\t%s\n' "$workspace_name" "$target"
+      else
+        "$cmux_bin" new-workspace --name "$workspace_name" --cwd "$target" --focus true >/dev/null
+        printf 'create-workspace\t%s\t%s\n' "$workspace_name" "$target"
+      fi
+    else
+      printf 'skip cmux-unavailable\t%s\n' "$workspace_name"
+    fi
+  else
+    printf 'skip cmux-disabled\t%s\n' "$workspace_name"
+  fi
+
+  if [ "$mode" = "dry-run" ]; then
+    printf 'would-go-project\t%s\t%s\n' "$name" "$target"
+    print_apply_hint go "$query"
+  else
+    printf 'go-project\t%s\t%s\n' "$name" "$target"
+  fi
+
+  [ "$added_link" -eq 0 ] || true
+}
+
 cmd_anchor() {
   local mode="apply"
   local cmux_bin
@@ -826,7 +1342,7 @@ cmd_anchor() {
         shift 2
         ;;
       -h|--help)
-        usage
+        command_help anchor
         exit 0
         ;;
       *)
@@ -954,7 +1470,7 @@ cmd_delete() {
         shift 2
         ;;
       -h|--help)
-        usage
+        command_help delete
         exit 0
         ;;
       --)
@@ -1091,7 +1607,7 @@ cmd_sync() {
         shift 2
         ;;
       -h|--help)
-        usage
+        command_help sync
         exit 0
         ;;
       *)
@@ -1251,7 +1767,7 @@ cmd_worktree_list() {
         shift
         ;;
       -h|--help)
-        usage
+        command_help "worktree list"
         exit 0
         ;;
       *)
@@ -1274,6 +1790,294 @@ cmd_worktree_list() {
 
   collect_worktree_rows "$rows_file" "$scope_repo_root"
   worktree_render_rows "$rows_file" "$mode"
+}
+
+cmd_worktree_prune() {
+  local mode="apply"
+  local repo_path=""
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --dry-run)
+        mode="dry-run"
+        shift
+        ;;
+      --apply)
+        mode="apply"
+        shift
+        ;;
+      --repo)
+        [ "$#" -ge 2 ] || fail "--repo requires a path"
+        repo_path="$2"
+        shift 2
+        ;;
+      -h|--help)
+        command_help "worktree prune"
+        exit 0
+        ;;
+      *)
+        fail "unknown worktree prune option: $1"
+        ;;
+    esac
+  done
+
+  local scope_repo_root=""
+  if [ -n "$repo_path" ]; then
+    scope_repo_root="$(worktree_repo_root_for_path "$(resolve_dir "$repo_path")" 2>/dev/null)" || fail "git repo not found: $repo_path"
+  else
+    scope_repo_root="$(worktree_repo_root_from_cmux "$(find_cmux)" 2>/dev/null || true)"
+  fi
+
+  local roots_file
+  roots_file="$(mktemp)"
+  # shellcheck disable=SC2064
+  trap "rm -f '$roots_file'" RETURN
+
+  if [ -n "$scope_repo_root" ]; then
+    printf '%s\n' "$scope_repo_root" > "$roots_file"
+  else
+    discover_worktree_repo_roots "$roots_file"
+  fi
+
+  if [ ! -s "$roots_file" ]; then
+    printf 'No managed worktree repos found.\n'
+    return 0
+  fi
+
+  local pruned_repos=0 planned_repos=0 skipped=0 repo_root repo_name
+  while IFS= read -r repo_root; do
+    [ -n "$repo_root" ] || continue
+    [ -d "$repo_root" ] || continue
+    repo_name="$(basename "$repo_root")"
+
+    if [ "$mode" = "dry-run" ]; then
+      printf 'would-prune-worktree-repo\t%s\t%s\n' "$repo_name" "$repo_root"
+      planned_repos=$((planned_repos + 1))
+      continue
+    fi
+
+    git -C "$repo_root" worktree prune >/dev/null 2>&1 || fail "failed to prune worktrees for repo: $repo_root"
+    printf 'prune-worktree-repo\t%s\t%s\n' "$repo_name" "$repo_root"
+    pruned_repos=$((pruned_repos + 1))
+  done < "$roots_file"
+
+  printf 'summary\tmode=%s\tplanned_repos=%s\tpruned_repos=%s\tskipped=%s\n' \
+    "$mode" "$planned_repos" "$pruned_repos" "$skipped"
+  if [ "$mode" = "dry-run" ]; then
+    print_apply_hint wt prune
+  fi
+}
+
+cmd_worktree_move() {
+  local mode="apply"
+  local repo_path=""
+  local source=""
+  local destination=""
+  local source_set=0
+  local positional=()
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --dry-run)
+        mode="dry-run"
+        shift
+        ;;
+      --apply)
+        mode="apply"
+        shift
+        ;;
+      --repo)
+        [ "$#" -ge 2 ] || fail "--repo requires a path"
+        repo_path="$2"
+        shift 2
+        ;;
+      --target)
+        [ "$#" -ge 2 ] || fail "--target requires text"
+        source="$2"
+        source_set=1
+        shift 2
+        ;;
+      --to|--destination)
+        [ "$#" -ge 2 ] || fail "--to requires text"
+        destination="$2"
+        shift 2
+        ;;
+      -h|--help)
+        command_help "worktree move"
+        exit 0
+        ;;
+      --)
+        shift
+        while [ "$#" -gt 0 ]; do
+          positional+=("$1")
+          shift
+        done
+        ;;
+      --*)
+        fail "unknown worktree move option: $1"
+        ;;
+      *)
+        positional+=("$1")
+        shift
+        ;;
+    esac
+  done
+
+  case "${#positional[@]}" in
+    0)
+      ;;
+    1)
+      if [ "$source_set" -eq 0 ] && [ -z "$source" ]; then
+        destination="${positional[0]}"
+      elif [ -z "$destination" ]; then
+        destination="${positional[0]}"
+      else
+        fail "worktree move accepts at most one destination"
+      fi
+      ;;
+    2)
+      if [ "$source_set" -eq 0 ] && [ -z "$source" ]; then
+        source="${positional[0]}"
+        source_set=1
+      fi
+      if [ -z "$destination" ]; then
+        destination="${positional[1]}"
+      else
+        fail "worktree move accepts at most one destination"
+      fi
+      ;;
+    *)
+      fail "worktree move accepts at most one source and one destination"
+      ;;
+  esac
+
+  if [ -z "$destination" ]; then
+    fail "worktree move requires a destination"
+  fi
+
+  local scope_repo_root=""
+  if [ -n "$repo_path" ]; then
+    scope_repo_root="$(worktree_repo_root_for_path "$(resolve_dir "$repo_path")" 2>/dev/null)" || fail "git repo not found: $repo_path"
+  else
+    scope_repo_root="$(worktree_repo_root_from_cmux "$(find_cmux)" 2>/dev/null || true)"
+    if [ -z "$scope_repo_root" ]; then
+      scope_repo_root="$(worktree_repo_root_for_path "$PWD" 2>/dev/null || true)"
+    fi
+  fi
+
+  if [ -z "$source" ]; then
+    source="$(worktree_current_path_from_pwd 2>/dev/null || true)"
+    [ -n "$source" ] || fail "worktree move requires a target or must be run inside a worktree"
+  fi
+
+  local rows_file matches_file match_count repo_root repo_name worktree_name worktree_path branch destination_path current_parent
+  rows_file="$(mktemp)"
+  matches_file="$(mktemp)"
+  # shellcheck disable=SC2064
+  trap "rm -f '$rows_file' '$matches_file'" RETURN
+
+  collect_worktree_rows "$rows_file" "$scope_repo_root"
+  worktree_find_rows "$rows_file" "$source" "$matches_file"
+
+  match_count="$(wc -l < "$matches_file" | tr -d ' ')"
+  [ "$match_count" -gt 0 ] || fail "worktree not found: $source"
+  [ "$match_count" -eq 1 ] || fail "worktree target is ambiguous: $source"
+
+  IFS=$'\t' read -r repo_root repo_name worktree_name worktree_path branch < "$matches_file"
+  [ "$worktree_path" != "$repo_root" ] || fail "refusing to move the main repository checkout: $worktree_path"
+
+  if ! destination_path="$(worktree_move_destination_path "$repo_root" "$destination" 2>/dev/null)"; then
+    fail "invalid worktree destination: $destination"
+  fi
+
+  if [ "$destination_path" = "$worktree_path" ]; then
+    if [ "$mode" = "dry-run" ]; then
+      printf 'would-skip-worktree-move\t%s\t%s\n' "$worktree_name" "$worktree_path"
+      print_apply_hint wt move "$worktree_name" "$destination"
+      return 0
+    fi
+    printf 'skip-worktree-move\t%s\t%s\n' "$worktree_name" "$worktree_path"
+    return 0
+  fi
+
+  if [ -e "$destination_path" ]; then
+    fail "destination already exists: $destination_path"
+  fi
+
+  if [ "$mode" = "dry-run" ]; then
+    printf 'would-move-worktree\t%s\t%s\t%s\t%s\n' "$worktree_name" "$worktree_path" "$destination_path" "$branch"
+    print_apply_hint wt move "$worktree_name" "$destination"
+    return 0
+  fi
+
+  current_parent="$(dirname "$destination_path")"
+  mkdir -p "$current_parent"
+  git -C "$repo_root" worktree move "$worktree_path" "$destination_path" >/dev/null 2>&1 || fail "failed to move worktree: $worktree_path -> $destination_path"
+  printf 'move-worktree\t%s\t%s\t%s\t%s\n' "$worktree_name" "$worktree_path" "$destination_path" "$branch"
+}
+
+cmd_update() {
+  local mode="apply"
+  local repo_url="${C4J_REPO_URL:-$DEFAULT_REPO_URL}"
+  local install_dir="${C4J_INSTALL_DIR:-$HOME/.local/share/c4j}"
+  local ref="${C4J_UPDATE_REF:-${C4J_REF:-}}"
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --dry-run)
+        mode="dry-run"
+        shift
+        ;;
+      --apply)
+        mode="apply"
+        shift
+        ;;
+      --ref)
+        [ "$#" -ge 2 ] || fail "--ref requires text"
+        ref="$2"
+        shift 2
+        ;;
+      --repo-url)
+        [ "$#" -ge 2 ] || fail "--repo-url requires text"
+        repo_url="$2"
+        shift 2
+        ;;
+      --install-dir)
+        [ "$#" -ge 2 ] || fail "--install-dir requires a path"
+        install_dir="$2"
+        shift 2
+        ;;
+      -h|--help)
+        command_help update
+        exit 0
+        ;;
+      --*)
+        fail "unknown update option: $1"
+        ;;
+      *)
+        fail "update takes no positional arguments"
+        ;;
+    esac
+  done
+
+  if [ -z "$ref" ]; then
+    ref="$(update_latest_release_ref "$repo_url")" || fail "cannot determine latest release ref from: $repo_url"
+  fi
+
+  if [ -e "$install_dir" ] && [ ! -d "$install_dir/.git" ]; then
+    fail "install dir exists and is not a git clone: $install_dir"
+  fi
+
+  if [ "$mode" = "dry-run" ]; then
+    printf 'would-update-source\t%s\t%s\n' "$install_dir" "$ref"
+    printf 'would-install-bin\t%s\n' "${C4J_BIN_DIR:-$HOME/.local/bin}/c4j"
+    print_apply_hint update
+    return 0
+  fi
+
+  update_source_checkout "$install_dir" "$repo_url" "$ref" || fail "failed to update source checkout: $install_dir"
+  bash "$install_dir/scripts/install.sh" --no-active-dir --no-config --no-rc >/dev/null 2>&1 || fail "failed to install updated c4j: $install_dir"
+  printf 'update-cli\t%s\t%s\n' "$ref" "$install_dir"
 }
 
 cmd_worktree_delete() {
@@ -1304,7 +2108,7 @@ cmd_worktree_delete() {
         shift 2
         ;;
       -h|--help)
-        usage
+        command_help "worktree delete"
         exit 0
         ;;
       --)
@@ -1405,7 +2209,7 @@ cmd_worktree_update() {
         shift 2
         ;;
       -h|--help)
-        usage
+        command_help "worktree update"
         exit 0
         ;;
       --)
@@ -1515,7 +2319,7 @@ cmd_worktree_create() {
         shift 2
         ;;
       -h|--help)
-        usage
+        command_help worktree
         exit 0
         ;;
       --)
@@ -1643,7 +2447,11 @@ cmd_worktree_create() {
     if [ "$name_set" -eq 1 ]; then
       hint_args+=(--name "$requested_name")
     fi
-    print_apply_hint worktree "${hint_args[@]}"
+    if [ "${#hint_args[@]}" -gt 0 ]; then
+      print_apply_hint worktree "${hint_args[@]}"
+    else
+      print_apply_hint worktree
+    fi
   fi
 }
 
@@ -1662,6 +2470,9 @@ cmd_worktree() {
         index=$((index + 1))
         ;;
       --repo|--target)
+        index=$((index + 2))
+        ;;
+      --to|--destination)
         index=$((index + 2))
         ;;
       --name)
@@ -1689,20 +2500,46 @@ cmd_worktree() {
     esac
   done
 
-  local sub_args=("${args[@]}")
+  local -a tail_args=()
   if [ "$reserved_index" -ge 0 ]; then
-    sub_args=("${args[@]:0:$reserved_index}" "${args[@]:$((reserved_index + 1))}")
+    tail_args=("${args[@]:$((reserved_index + 1))}")
   fi
 
   case "$reserved" in
     list|ls)
-      cmd_worktree_list "${sub_args[@]}"
+      if [ "${#tail_args[@]}" -gt 0 ]; then
+        cmd_worktree_list "${tail_args[@]}"
+      else
+        cmd_worktree_list
+      fi
+      ;;
+    prune)
+      if [ "${#tail_args[@]}" -gt 0 ]; then
+        cmd_worktree_prune "${tail_args[@]}"
+      else
+        cmd_worktree_prune
+      fi
+      ;;
+    move)
+      if [ "${#tail_args[@]}" -gt 0 ]; then
+        cmd_worktree_move "${tail_args[@]}"
+      else
+        cmd_worktree_move
+      fi
       ;;
     delete|remove|rm)
-      cmd_worktree_delete "${sub_args[@]}"
+      if [ "${#tail_args[@]}" -gt 0 ]; then
+        cmd_worktree_delete "${tail_args[@]}"
+      else
+        cmd_worktree_delete
+      fi
       ;;
     update|refresh|up)
-      cmd_worktree_update "${sub_args[@]}"
+      if [ "${#tail_args[@]}" -gt 0 ]; then
+        cmd_worktree_update "${tail_args[@]}"
+      else
+        cmd_worktree_update
+      fi
       ;;
     "")
       cmd_worktree_create "$@"
@@ -1722,7 +2559,7 @@ cmd_list() {
         shift
         ;;
       -h|--help)
-        usage
+        command_help list
         exit 0
         ;;
       *)
@@ -1786,6 +2623,10 @@ main() {
       shift
       cmd_add "$@"
       ;;
+    go)
+      shift
+      cmd_go "$@"
+      ;;
     anchor)
       shift
       cmd_anchor "$@"
@@ -1793,6 +2634,10 @@ main() {
     delete|remove|rm)
       shift
       cmd_delete "$@"
+      ;;
+    update)
+      shift
+      cmd_update "$@"
       ;;
     worktree|wt|pane|make-pane)
       shift
@@ -1816,17 +2661,30 @@ main() {
       ;;
     doctor)
       shift
+      if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
+        [ "$#" -eq 1 ] || fail "doctor --help takes no arguments"
+        command_help doctor
+        return
+      fi
       [ "$#" -eq 0 ] || fail "doctor takes no arguments"
       cmd_doctor
       ;;
     version|--version|-v)
       printf '%s\n' "$VERSION"
       ;;
-    -h|--help|help|"")
+    help)
+      shift
+      if [ "$#" -eq 0 ]; then
+        usage
+      else
+        command_help "$*"
+      fi
+      ;;
+    -h|--help|"")
       usage
       ;;
     *)
-      fail "unknown command: $command"
+      fail "unknown command: $command (try: c4j help)"
       ;;
   esac
 }

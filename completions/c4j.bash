@@ -44,16 +44,28 @@ _c4j_complete() {
       add)
         _c4j__complete_words "$cur" --dry-run --apply -h --help
         ;;
+      go)
+        _c4j__complete_words "$cur" --dry-run --apply --no-cmux --active-dir --cmux --name-prefix -h --help
+        ;;
       anchor)
         _c4j__complete_words "$cur" --dry-run --apply --name --cwd -h --help
         ;;
       delete|remove|rm)
         _c4j__complete_words "$cur" --dry-run --apply --keep-cmux -h --help
         ;;
+      update)
+        _c4j__complete_words "$cur" --dry-run --apply --ref --repo-url --install-dir -h --help
+        ;;
       worktree|wt|pane|make-pane)
         case "$subcommand" in
           list|ls)
             _c4j__complete_words "$cur" --repo --plain --tsv -h --help
+            ;;
+          prune)
+            _c4j__complete_words "$cur" --dry-run --apply --repo -h --help
+            ;;
+          move)
+            _c4j__complete_words "$cur" --dry-run --apply --repo --target --to --destination -h --help
             ;;
           delete|remove|rm)
             _c4j__complete_words "$cur" --dry-run --apply --repo --target -h --help
@@ -89,7 +101,7 @@ _c4j_complete() {
         esac
         ;;
       *)
-        _c4j__complete_words "$cur" add anchor delete setup sync list config doctor version remove rm -h --help
+        _c4j__complete_words "$cur" add go anchor delete update setup sync list config doctor version remove rm -h --help
         ;;
     esac
     return 0
@@ -98,6 +110,20 @@ _c4j_complete() {
   case "$command" in
     add)
       _c4j__complete_dirs "$cur"
+      ;;
+    go)
+      case "$prev" in
+        --active-dir|--cmux)
+          _c4j__complete_dirs "$cur"
+          ;;
+        --name-prefix)
+          COMPREPLY=()
+          ;;
+        *)
+          _c4j__complete_dirs "$cur"
+          _c4j__complete_words "$cur" --dry-run --apply --no-cmux --active-dir --cmux --name-prefix
+          ;;
+      esac
       ;;
     anchor)
       if [ "$prev" = "--name" ]; then
@@ -109,10 +135,33 @@ _c4j_complete() {
     delete|remove|rm)
       _c4j__complete_dirs "$cur"
       ;;
+    update)
+      case "$prev" in
+        --install-dir)
+          _c4j__complete_dirs "$cur"
+          ;;
+        *)
+          _c4j__complete_words "$cur" --dry-run --apply --ref --repo-url --install-dir
+          ;;
+      esac
+      ;;
     worktree|wt|pane|make-pane)
       case "$subcommand" in
         list|ls)
           _c4j__complete_words "$cur" --repo --plain --tsv
+          ;;
+        prune)
+          _c4j__complete_words "$cur" --dry-run --apply --repo
+          ;;
+        move)
+          case "$prev" in
+            --target|--repo|--to|--destination)
+              _c4j__complete_dirs "$cur"
+              ;;
+            *)
+              _c4j__complete_words "$cur" --dry-run --apply --repo --target --to --destination
+              ;;
+          esac
           ;;
         delete|remove|rm)
           case "$prev" in
@@ -143,10 +192,10 @@ _c4j_complete() {
               _c4j__complete_dirs "$cur"
               ;;
             *)
-              _c4j__complete_words "$cur" list ls delete remove rm update refresh up --dry-run --apply --repo --name
-              ;;
-          esac
-          ;;
+          _c4j__complete_words "$cur" list ls prune move delete remove rm update refresh up --dry-run --apply --repo --name
+            ;;
+        esac
+      ;;
       esac
       ;;
     setup)
@@ -199,7 +248,7 @@ _c4j_complete() {
       COMPREPLY=()
       ;;
     *)
-      _c4j__complete_words "$cur" add anchor delete worktree wt pane make-pane setup sync list config doctor version remove rm
+      _c4j__complete_words "$cur" add go anchor delete update worktree wt pane make-pane setup sync list config doctor version remove rm
       ;;
   esac
 }
