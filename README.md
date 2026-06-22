@@ -43,10 +43,10 @@ c4j doctor
 ```bash
 # Jump to an active project and select or create its cmux workspace.
 c4j go cmux4justn
-c4j go ~/Workspaces/repos/justn-hyeok/cmux4justn
+c4j go ~/Workspaces/repos/bssm-oss/main/justn-hyeok/cmux4justn
 
 # Add a project and sync cmux.
-c4j add ~/Workspaces/repos/justn-hyeok/cmux4justn
+c4j add ~/Workspaces/repos/bssm-oss/main/justn-hyeok/cmux4justn
 
 # Ensure the pinned cmux anchor workspace exists.
 c4j anchor
@@ -105,7 +105,7 @@ Use `--no-cmux` when you only want the shell directory jump and active symlink m
 c4j go cmux4justn
 c4j go codeagora
 c4j go .
-c4j go ~/Workspaces/repos/justn-hyeok/cmux4justn
+c4j go ~/Workspaces/repos/bssm-oss/main/justn-hyeok/cmux4justn
 c4j go --dry-run cmux4justn
 c4j go --no-cmux cmux4justn
 ```

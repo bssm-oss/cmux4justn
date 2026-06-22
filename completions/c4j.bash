@@ -23,6 +23,11 @@ _c4j__complete_words() {
   done
 }
 
+_c4j__complete_help_topics() {
+  local cur="${1:-}"
+  _c4j__complete_words "$cur" add go anchor delete remove rm setup sync list config doctor update worktree wt version agent scripts automation ax
+}
+
 _c4j_complete() {
   local cur prev command subcommand field
 
@@ -100,8 +105,11 @@ _c4j_complete() {
             ;;
         esac
         ;;
+      help)
+        COMPREPLY=()
+        ;;
       *)
-        _c4j__complete_words "$cur" add go anchor delete update setup sync list config doctor version remove rm -h --help
+        _c4j__complete_words "$cur" add go anchor delete update setup sync list config doctor version help remove rm -h --help
         ;;
     esac
     return 0
@@ -234,6 +242,19 @@ _c4j_complete() {
           ;;
       esac
       ;;
+    help)
+      case "$subcommand" in
+        worktree|wt)
+          _c4j__complete_words "$cur" list prune move delete update
+          ;;
+        "")
+          _c4j__complete_help_topics "$cur"
+          ;;
+        *)
+          COMPREPLY=()
+          ;;
+      esac
+      ;;
     sync)
       case "$prev" in
         --direction)
@@ -248,7 +269,7 @@ _c4j_complete() {
       COMPREPLY=()
       ;;
     *)
-      _c4j__complete_words "$cur" add go anchor delete update worktree wt pane make-pane setup sync list config doctor version remove rm
+      _c4j__complete_words "$cur" add go anchor delete update worktree wt pane make-pane setup sync list config doctor version help remove rm
       ;;
   esac
 }

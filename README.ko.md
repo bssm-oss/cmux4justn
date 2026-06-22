@@ -43,10 +43,10 @@ c4j doctor
 ```bash
 # active 프로젝트로 이동하고 cmux workspace를 선택하거나 생성합니다.
 c4j go cmux4justn
-c4j go ~/Workspaces/repos/justn-hyeok/cmux4justn
+c4j go ~/Workspaces/repos/bssm-oss/main/justn-hyeok/cmux4justn
 
 # 프로젝트를 active registry에 추가하고 cmux와 동기화합니다.
-c4j add ~/Workspaces/repos/justn-hyeok/cmux4justn
+c4j add ~/Workspaces/repos/bssm-oss/main/justn-hyeok/cmux4justn
 
 # pinned cmux anchor workspace를 보장합니다.
 c4j anchor
@@ -105,7 +105,7 @@ cmux는 건드리지 않고 셸 이동과 active symlink 관리만 하고 싶으
 c4j go cmux4justn
 c4j go codeagora
 c4j go .
-c4j go ~/Workspaces/repos/justn-hyeok/cmux4justn
+c4j go ~/Workspaces/repos/bssm-oss/main/justn-hyeok/cmux4justn
 c4j go --dry-run cmux4justn
 c4j go --no-cmux cmux4justn
 ```

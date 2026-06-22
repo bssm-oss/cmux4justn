@@ -292,12 +292,8 @@ fi
 mkdir -p "$(dirname "$SHELL_RC")"
 touch "$SHELL_RC"
 
-alias_present=0
 wrapper_present=0
 completion_present=0
-if grep -F "alias c4j=" "$SHELL_RC" >/dev/null 2>&1; then
-  alias_present=1
-fi
 if grep -F "$MARKER_START" "$SHELL_RC" >/dev/null 2>&1 &&
   grep -F "go-project" "$SHELL_RC" >/dev/null 2>&1 &&
   grep -F "move-worktree" "$SHELL_RC" >/dev/null 2>&1; then

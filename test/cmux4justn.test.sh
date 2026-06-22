@@ -417,6 +417,19 @@ COMP_WORDS=(c4j add "")
 COMP_CWORD=2
 _c4j_complete
 assert_contains "${COMPREPLY[*]}" "beta"
+COMP_WORDS=(c4j h)
+COMP_CWORD=1
+_c4j_complete
+assert_contains "${COMPREPLY[*]}" "help"
+COMP_WORDS=(c4j help "")
+COMP_CWORD=2
+_c4j_complete
+assert_contains "${COMPREPLY[*]}" "agent"
+assert_contains "${COMPREPLY[*]}" "go"
+COMP_WORDS=(c4j help wt "")
+COMP_CWORD=3
+_c4j_complete
+assert_contains "${COMPREPLY[*]}" "move"
 cd "$OLDPWD"
 
 INSTALL_RC="$TMPDIR/zshrc"
