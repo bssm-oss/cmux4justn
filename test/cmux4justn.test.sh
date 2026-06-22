@@ -64,7 +64,7 @@ assert_contains "$output" "Run this when c4j feels weird."
 
 ACTIVE="$TMPDIR/@active"
 PROJECTS="$TMPDIR/projects"
-mkdir -p "$ACTIVE" "$PROJECTS/alpha" "$PROJECTS/beta" "$PROJECTS/gamma" "$PROJECTS/delta" "$PROJECTS/legacy" "$PROJECTS/unsafe"
+mkdir -p "$ACTIVE" "$PROJECTS/alpha" "$PROJECTS/beta" "$PROJECTS/gamma" "$PROJECTS/delta" "$PROJECTS/legacy" "$PROJECTS/unsafe" "$PROJECTS/conflict-other"
 PROJECTS_RESOLVED="$(cd "$PROJECTS" && pwd -P)"
 ln -s "$PROJECTS/alpha" "$ACTIVE/alpha"
 ln -s "$PROJECTS/beta" "$ACTIVE/beta"
@@ -108,6 +108,7 @@ if [ "${1:-}" = "--json" ] && [ "${2:-}" = "list-workspaces" ]; then
     {"title": "@active/alpha", "current_directory": "$CMUX_TEST_PROJECTS/alpha", "ref": "workspace:1"},
     {"title": "@active/delta", "current_directory": "$CMUX_TEST_PROJECTS/delta", "ref": "workspace:2"},
     {"title": "@active/gamma", "current_directory": "$CMUX_TEST_PROJECTS/gamma", "ref": "workspace:3"},
+    {"title": "@active/conflict", "current_directory": "$CMUX_TEST_PROJECTS/conflict-other", "ref": "workspace:6"},
     {"title": "now-i-work-in-cmux4justn", "current_directory": "${WORKTREE_REPO:-}", "ref": "workspace:7"},
     {"title": "@active/bad/name", "current_directory": "$CMUX_TEST_PROJECTS/unsafe", "ref": "workspace:4"},
     {"title": "other", "current_directory": "$CMUX_TEST_PROJECTS/gamma", "ref": "workspace:5"},
@@ -373,6 +374,15 @@ assert_contains "$output" "go-project	legacy	$PROJECTS_RESOLVED/legacy"
 [ -L "$ACTIVE/legacy" ] || fail "go path should add a missing active link"
 [ ! -e "$CALLS" ] || fail "go --no-cmux should not call cmux"
 
+CONFLICT_PROJECT="$PROJECTS/conflict"
+rm -f "$ACTIVE/conflict"
+mkdir -p "$CONFLICT_PROJECT"
+if output="$($CLI go "$CONFLICT_PROJECT" 2>&1)"; then
+  fail "go should fail when the matching workspace points elsewhere"
+fi
+assert_contains "$output" "workspace already points elsewhere: @active/conflict"
+[ ! -e "$ACTIVE/conflict" ] || fail "go failure should not leave a new active link"
+
 output="$($CLI list)"
 assert_contains "$output" "PROJECT"
 assert_contains "$output" "PATH"
@@ -578,8 +588,13 @@ assert_contains "$output" "installed-bin	$STDIN_BOOTSTRAP_HOME/.local/bin/c4j"
 
 UPDATE_SOURCE="$TMPDIR/update-source"
 UPDATE_REMOTE="$TMPDIR/update-remote.git"
+UPDATE_ALT_SOURCE="$TMPDIR/update-alt-source"
+UPDATE_ALT_REMOTE="$TMPDIR/update-alt-remote.git"
 UPDATE_INSTALL_DIR="$TMPDIR/update-install"
 UPDATE_BIN_DIR="$TMPDIR/update-bin"
+mkdir -p "$UPDATE_BIN_DIR"
+printf '#!/usr/bin/env bash\nprintf old-version\\\\n\n' > "$UPDATE_BIN_DIR/c4j"
+chmod +x "$UPDATE_BIN_DIR/c4j"
 git clone "$ROOT" "$UPDATE_SOURCE" >/dev/null
 git -C "$UPDATE_SOURCE" config user.name "Test User"
 git -C "$UPDATE_SOURCE" config user.email "test@example.com"
@@ -595,6 +610,19 @@ assert_contains "$output" "would-install-bin	$UPDATE_BIN_DIR/c4j"
 output="$(C4J_REPO_URL="file://$UPDATE_REMOTE" C4J_BIN_DIR="$UPDATE_BIN_DIR" "$CLI" update --ref v9.9.9 --install-dir "$UPDATE_INSTALL_DIR")"
 assert_contains "$output" "update-cli	v9.9.9	$UPDATE_INSTALL_DIR"
 [ "$("$UPDATE_BIN_DIR/c4j" version)" = "9.9.9" ] || fail "update should install the tagged version"
+
+git clone "$ROOT" "$UPDATE_ALT_SOURCE" >/dev/null
+git -C "$UPDATE_ALT_SOURCE" config user.name "Test User"
+git -C "$UPDATE_ALT_SOURCE" config user.email "test@example.com"
+sed -i '' 's/^VERSION="0\.12\.0"/VERSION="8.8.8"/' "$UPDATE_ALT_SOURCE/bin/cmux4justn"
+sed -i '' 's/^0\.12\.0$/8.8.8/' "$UPDATE_ALT_SOURCE/VERSION"
+git -C "$UPDATE_ALT_SOURCE" add VERSION bin/cmux4justn
+git -C "$UPDATE_ALT_SOURCE" commit -m "alt test version" >/dev/null
+git -C "$UPDATE_ALT_SOURCE" tag v8.8.8
+git clone --bare "$UPDATE_ALT_SOURCE" "$UPDATE_ALT_REMOTE" >/dev/null
+output="$(C4J_REPO_URL="file://$UPDATE_ALT_REMOTE" C4J_BIN_DIR="$UPDATE_BIN_DIR" "$CLI" update --ref v8.8.8 --install-dir "$UPDATE_INSTALL_DIR")"
+assert_contains "$output" "update-cli	v8.8.8	$UPDATE_INSTALL_DIR"
+[ "$("$UPDATE_BIN_DIR/c4j" version)" = "8.8.8" ] || fail "update should fetch refs from an overridden repo-url even when install dir exists"
 
 [ "$($CLI version)" = "0.12.0" ] || fail "version mismatch"
 [ "$("$ROOT/bin/cmux4justn" version)" = "0.12.0" ] || fail "legacy version mismatch"

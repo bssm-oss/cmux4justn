@@ -799,7 +799,7 @@ update_source_checkout() {
   local ref="$3"
 
   if [ -d "$install_dir/.git" ]; then
-    git -C "$install_dir" fetch -q --depth 1 origin "$ref"
+    git -C "$install_dir" fetch -q --depth 1 "$repo_url" "$ref"
     git -C "$install_dir" -c advice.detachedHead=false checkout -q -f FETCH_HEAD
   else
     mkdir -p "$(dirname "$install_dir")"
@@ -1236,6 +1236,24 @@ cmd_go() {
   link="$ACTIVE_DIR/$name"
   workspace_name="${NAME_PREFIX}${name}"
 
+  local inventory_file="" inventory_loaded=0 workspace_ref="" workspace_cwd=""
+  if [ "$cmux_enabled" -eq 1 ]; then
+    inventory_file="$(mktemp)"
+    # shellcheck disable=SC2064
+    trap "rm -f '$inventory_file'" RETURN
+
+    if load_cmux_inventory "$cmux_bin" "$inventory_file"; then
+      inventory_loaded=1
+      workspace_ref="$(workspace_ref_for_title "$inventory_file" "$workspace_name" 2>/dev/null || true)"
+      workspace_cwd="$(workspace_cwd_for_title "$inventory_file" "$workspace_name" 2>/dev/null || true)"
+      if [ -n "$workspace_ref" ] && [ "$workspace_cwd" != "$target" ]; then
+        fail "workspace already points elsewhere: $workspace_name -> $workspace_cwd"
+      fi
+    elif [ "$mode" = "apply" ]; then
+      fail "cannot read cmux workspace inventory for apply go"
+    fi
+  fi
+
   if [ -L "$link" ]; then
     existing="$(resolve_dir "$link")" || fail "existing active link is broken: $link"
     [ "$existing" = "$target" ] || fail "active link already points elsewhere: $link -> $existing"
@@ -1251,22 +1269,7 @@ cmd_go() {
   fi
 
   if [ "$cmux_enabled" -eq 1 ]; then
-    local inventory_file inventory_loaded=0 workspace_ref workspace_cwd
-    inventory_file="$(mktemp)"
-    # shellcheck disable=SC2064
-    trap "rm -f '$inventory_file'" RETURN
-
-    if load_cmux_inventory "$cmux_bin" "$inventory_file"; then
-      inventory_loaded=1
-    fi
-
     if [ "$inventory_loaded" -eq 1 ]; then
-      workspace_ref="$(workspace_ref_for_title "$inventory_file" "$workspace_name" 2>/dev/null || true)"
-      workspace_cwd="$(workspace_cwd_for_title "$inventory_file" "$workspace_name" 2>/dev/null || true)"
-      if [ -n "$workspace_ref" ] && [ "$workspace_cwd" != "$target" ]; then
-        fail "workspace already points elsewhere: $workspace_name -> $workspace_cwd"
-      fi
-
       if [ -n "$workspace_ref" ]; then
         if [ "$mode" = "dry-run" ]; then
           printf 'would-select-workspace\t%s\t%s\n' "$workspace_name" "$workspace_ref"
@@ -2076,7 +2079,9 @@ cmd_update() {
   fi
 
   update_source_checkout "$install_dir" "$repo_url" "$ref" || fail "failed to update source checkout: $install_dir"
-  bash "$install_dir/scripts/install.sh" --no-active-dir --no-config --no-rc >/dev/null 2>&1 || fail "failed to install updated c4j: $install_dir"
+  local target_bin="${C4J_BIN_DIR:-$HOME/.local/bin}/c4j"
+  mkdir -p "$(dirname "$target_bin")"
+  install -m 0755 "$install_dir/bin/cmux4justn" "$target_bin" || fail "failed to install updated c4j: $target_bin"
   printf 'update-cli\t%s\t%s\n' "$ref" "$install_dir"
 }
 
