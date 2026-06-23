@@ -22,7 +22,7 @@ cmux 사용자가 프로젝트 추가, active 목록 확인, workspace title 동
 ## 설치
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.7/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.7/install.sh | bash -s -- --rc
 ```
 
 설치 스크립트는 기본적으로 다음 작업을 합니다.
@@ -31,9 +31,9 @@ curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.7/install
 - `~/.local/bin/c4j`에 실행 파일 설치
 - `~/.c4j/active` active registry 생성
 - active registry 경로를 `~/.c4j/config`에 저장
-- `--rc` 옵션이 없으면 shell rc 파일은 수정하지 않음
+- `--rc` 옵션을 넘기면 shell wrapper와 completion fallback을 shell rc에 추가
 
-`~/.local/bin`이 `PATH`에 없으면 설치 스크립트가 shell rc에 추가할 `export` 줄을 출력합니다. 그 뒤 설정 상태를 확인합니다.
+`--rc` wrapper가 있어야 `c4j go`, `c4j cd`, `c4j wt`가 현재 shell 디렉터리를 바꿀 수 있습니다. `~/.local/bin`이 `PATH`에 없으면 설치 스크립트가 shell rc에 추가할 `export` 줄을 출력합니다. 그 뒤 설정 상태를 확인합니다.
 
 ```bash
 c4j doctor
@@ -42,61 +42,40 @@ c4j doctor
 ## 빠른 시작
 
 ```bash
-# active 프로젝트로 이동하고 cmux workspace를 선택하거나 생성합니다.
-c4j go cmux4justn
-c4j go ~/Workspaces/repos/bssm-oss/main/justn-hyeok/cmux4justn
+# 현재 프로젝트를 열고 cmux workspace를 focus합니다.
+c4j go .
 
-# 현재 shell 디렉터리만 옮깁니다.
+# 이름으로 active 프로젝트를 엽니다.
+c4j go cmux4justn
+
+# cmux는 건드리지 않고 현재 shell 디렉터리만 옮깁니다.
 c4j cd cmux4justn
 
-# 프로젝트를 active registry에 추가하고 cmux와 동기화합니다.
-c4j add ~/Workspaces/repos/bssm-oss/main/justn-hyeok/cmux4justn
+# 현재 repo에서 worktree를 만들고 그 디렉터리로 이동합니다.
+c4j wt feature-api
 
-# pinned cmux anchor workspace를 보장합니다.
-c4j anchor
+# 기존 worktree를 다시 찾습니다.
+c4j wt list
 
-# 기본 @active/ prefix를 설정합니다. 필요하면 active registry 경로도 같이 넣습니다.
-c4j setup --active-dir ~/Workspaces/now
-
-# 프로젝트를 active registry에서 제거하고 cmux 워크스페이스도 닫습니다.
-c4j delete cmux4justn
+# 끝난 managed worktree를 제거합니다.
+c4j wt delete feature-api
 
 # active 프로젝트 목록을 봅니다.
 c4j list
 
-# 기본 active registry를 바꿉니다.
-c4j config set active-dir ~/Workspaces/now
-
-# cmux 워크스페이스 title prefix를 바꿉니다.
-c4j config set name-prefix "@active/"
-
-# 양방향 동기화를 미리 확인합니다.
-c4j sync --direction both --dry-run
-
-# 양방향 동기화를 실제 적용합니다.
-c4j sync --direction both --apply
+# 프로젝트를 active registry에서 제거하고 cmux 워크스페이스도 닫습니다.
+c4j delete cmux4justn
 
 # 특정 명령어 도움말만 봅니다.
 c4j help go
 c4j help cd
-c4j help wt move
-c4j help agent
+c4j help wt
 ```
 
 ## 명령어
 
 특정 명령어만 보고 싶으면 `c4j help <command>` 또는 `c4j <command> --help`를 씁니다.
 자동화/에이전트용 출력 규칙은 `c4j help agent`에서 확인합니다.
-
-### `c4j add [--dry-run|--apply] <path>...`
-
-하나 이상의 디렉터리를 active registry에 symlink로 추가한 뒤 `sync --direction both`를 실행합니다.
-
-경로 없이 실행하면 새 프로젝트를 추가하지 않고 양방향 동기화만 실행합니다.
-
-```bash
-c4j add
-```
 
 ### `c4j go [--dry-run|--apply] [--no-cmux] <name-or-path>`
 
@@ -127,53 +106,6 @@ c4j cd .
 c4j cd --dry-run codeagora
 ```
 
-### `c4j anchor [--dry-run|--apply] [--name <title>] [--cwd <path>]`
-
-pinned cmux anchor workspace가 존재하도록 보장합니다. 기본값은 다음과 같습니다.
-
-- title: `justn-is-always-around-here`
-- cwd: `~/Workspaces`
-- color: `Teal`
-
-```bash
-c4j anchor
-c4j anchor --dry-run
-c4j anchor --name justn-is-always-around-here --cwd ~/Workspaces
-```
-
-### `c4j delete [--dry-run|--apply] [--keep-cmux] <name-or-path>...`
-
-하나 이상의 active symlink를 제거하고 대응되는 cmux 워크스페이스를 닫습니다.
-
-`delete`는 기본값이 `--apply`입니다. 실제 프로젝트 디렉터리는 절대 삭제하지 않습니다.
-
-```bash
-c4j delete cmux4justn
-c4j delete .
-c4j delete --dry-run cmux4justn
-c4j delete --keep-cmux cmux4justn
-```
-
-alias:
-
-- `remove`
-- `rm`
-
-### `c4j update [--dry-run|--apply] [--ref <ref>] [--repo-url <url>] [--install-dir <path>] [--allow-unsafe-source]`
-
-`c4j` 자체를 최신 태그로 다시 설치합니다. 기본적으로 `https://github.com/bssm-oss/cmux4justn.git`의 `v*` 태그 중 가장 최신을 찾아서 `~/.local/share/c4j`에서 다시 설치합니다.
-
-`--ref`로 신뢰하는 `v*` 태그를 고정할 수 있고, `--install-dir`로 로컬 소스 checkout 경로를 바꿀 수 있습니다. 다른 `--repo-url`이나 `v*`가 아닌 ref는 `--allow-unsafe-source`가 필요합니다.
-
-```bash
-c4j update
-c4j update --dry-run
-c4j update --ref v0.13.7
-c4j update --repo-url <url> --ref <ref> --allow-unsafe-source
-```
-
-dry-run 출력에는 현재 CLI 버전, target ref, resolved target commit, local source checkout이 이미 최신인지 여부가 포함됩니다.
-
 ### `c4j worktree [--dry-run|--apply] [--repo <path>] [--name <name>]`
 
 현재 repo용 git worktree를 `~/Workspaces/worktrees` 아래에 만듭니다. canonical repo 경로는 `~/Workspaces/repos` 구조를 그대로 따라갑니다.
@@ -198,6 +130,74 @@ c4j wt move api api-v2
 c4j worktree --repo ~/Workspaces/repos/bssm-oss/main/justn-hyeok/cmux4justn
 c4j worktree --name api
 ```
+
+### `c4j list [--plain]`
+
+active symlink와 실제 target 경로를 표로 출력합니다.
+
+script에서 쓰기 쉬운 tab-separated 출력이 필요하면 `--plain` 또는 `--tsv`를 사용합니다.
+
+### `c4j delete [--dry-run|--apply] [--keep-cmux] <name-or-path>...`
+
+하나 이상의 active symlink를 제거하고 대응되는 cmux 워크스페이스를 닫습니다.
+
+`delete`는 기본값이 `--apply`입니다. 실제 프로젝트 디렉터리는 절대 삭제하지 않습니다.
+
+```bash
+c4j delete cmux4justn
+c4j delete .
+c4j delete --dry-run cmux4justn
+c4j delete --keep-cmux cmux4justn
+```
+
+alias:
+
+- `remove`
+- `rm`
+
+## 유지보수와 고급 사용
+
+아래 명령어는 복구, 대량 reconcile, 설정 변경, script 용도에 가깝습니다. 일반적인 daily workflow는 `go`, `cd`, `wt`, `list`, `delete`에서 시작하면 됩니다.
+
+### `c4j add [--dry-run|--apply] <path>...`
+
+하나 이상의 디렉터리를 active registry에 symlink로 추가한 뒤 `sync --direction both`를 실행합니다.
+
+경로 없이 실행하면 새 프로젝트를 추가하지 않고 양방향 동기화를 미리 봅니다.
+
+```bash
+c4j add
+c4j add --apply
+```
+
+### `c4j anchor [--dry-run|--apply] [--name <title>] [--cwd <path>]`
+
+pinned cmux anchor workspace가 존재하도록 보장합니다. 기본값은 다음과 같습니다.
+
+- title: `justn-is-always-around-here`
+- cwd: `~/Workspaces`
+- color: `Teal`
+
+```bash
+c4j anchor
+c4j anchor --dry-run
+c4j anchor --name justn-is-always-around-here --cwd ~/Workspaces
+```
+
+### `c4j update [--dry-run|--apply] [--ref <ref>] [--repo-url <url>] [--install-dir <path>] [--allow-unsafe-source]`
+
+`c4j` 자체를 최신 태그로 다시 설치합니다. 기본적으로 `https://github.com/bssm-oss/cmux4justn.git`의 `v*` 태그 중 가장 최신을 찾아서 `~/.local/share/c4j`에서 다시 설치합니다.
+
+`--ref`로 신뢰하는 `v*` 태그를 고정할 수 있고, `--install-dir`로 로컬 소스 checkout 경로를 바꿀 수 있습니다. 다른 `--repo-url`이나 `v*`가 아닌 ref는 `--allow-unsafe-source`가 필요합니다.
+
+```bash
+c4j update
+c4j update --dry-run
+c4j update --ref v0.13.7
+c4j update --repo-url <url> --ref <ref> --allow-unsafe-source
+```
+
+dry-run 출력에는 현재 CLI 버전, target ref, resolved target commit, local source checkout이 이미 최신인지 여부가 포함됩니다.
 
 ### `c4j setup [--dry-run|--apply] [--active-dir <path>] [--name-prefix <prefix>]`
 
@@ -227,12 +227,6 @@ c4j sync --dry-run --direction active-to-cmux
 ```
 
 dry-run 출력 마지막에는 실제 반영할 때 실행할 정확한 `--apply` 명령이 표시됩니다.
-
-### `c4j list [--plain]`
-
-active symlink와 실제 target 경로를 표로 출력합니다.
-
-script에서 쓰기 쉬운 tab-separated 출력이 필요하면 `--plain` 또는 `--tsv`를 사용합니다.
 
 ### `c4j config get`
 
@@ -291,13 +285,13 @@ CLI 버전을 출력합니다.
 
 ```bash
 # 특정 릴리즈를 설치합니다.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.7/install.sh | C4J_REF=v0.13.7 bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.7/install.sh | C4J_REF=v0.13.7 bash -s -- --rc
 
 # bootstrap script에 고정된 릴리즈 대신 main에서 설치합니다.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash -s -- --allow-unsafe-source
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash -s -- --rc --allow-unsafe-source
 
 # source 다운로드 위치를 바꿉니다.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.7/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.7/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash -s -- --rc
 
 # 설치 작업을 미리 확인합니다.
 scripts/install.sh --dry-run

@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.13.8 - 2026-06-23
+
+### Changed
+
+- Reworked README and Korean README install examples around the `--rc` shell wrapper happy path.
+- Simplified Quick Start around daily commands: `go`, `cd`, `wt`, `list`, and `delete`.
+- Moved `add`, `sync`, `anchor`, `setup`, and `config` guidance into maintenance/advanced documentation.
+
 ## v0.13.7 - 2026-06-23
 
 ### Changed

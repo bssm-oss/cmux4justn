@@ -22,7 +22,7 @@ It gives cmux users a small workspace manager for adding projects, listing activ
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.7/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.7/install.sh | bash -s -- --rc
 ```
 
 The installer:
@@ -31,9 +31,9 @@ The installer:
 - installs `c4j` into `~/.local/bin/c4j`
 - creates the active-project registry at `~/.c4j/active`
 - writes the active registry path to `~/.c4j/config`
-- leaves shell rc files alone unless `--rc` is passed
+- adds the shell wrapper and completion fallback to your shell rc when `--rc` is passed
 
-If `~/.local/bin` is not on `PATH`, the installer prints the exact export line to add to your shell rc. Then check the setup:
+The `--rc` wrapper is what lets `c4j go`, `c4j cd`, and `c4j wt` change the current shell directory. If `~/.local/bin` is not on `PATH`, the installer prints the exact export line to add to your shell rc. Then check the setup:
 
 ```bash
 c4j doctor
@@ -42,61 +42,40 @@ c4j doctor
 ## Quick Start
 
 ```bash
-# Jump to an active project and select or create its cmux workspace.
-c4j go cmux4justn
-c4j go ~/Workspaces/repos/bssm-oss/main/justn-hyeok/cmux4justn
+# Open the current project and focus its cmux workspace.
+c4j go .
 
-# Change only the current shell directory.
+# Open a known active project by name.
+c4j go cmux4justn
+
+# Change only the current shell directory, without touching cmux.
 c4j cd cmux4justn
 
-# Add a project and sync cmux.
-c4j add ~/Workspaces/repos/bssm-oss/main/justn-hyeok/cmux4justn
+# Make a worktree for the current repo and cd into it.
+c4j wt feature-api
 
-# Ensure the pinned cmux anchor workspace exists.
-c4j anchor
+# Re-enter an existing worktree.
+c4j wt list
 
-# Set up the default @active/ prefix, optionally with a custom active registry.
-c4j setup --active-dir ~/Workspaces/now
-
-# Remove a project from the active registry and close its cmux workspace.
-c4j delete cmux4justn
+# Remove a managed worktree when you are done.
+c4j wt delete feature-api
 
 # List active projects.
 c4j list
 
-# Change the default active registry.
-c4j config set active-dir ~/Workspaces/now
-
-# Change the cmux workspace title prefix.
-c4j config set name-prefix "@active/"
-
-# Preview a full two-way sync.
-c4j sync --direction both --dry-run
-
-# Apply a full two-way sync.
-c4j sync --direction both --apply
+# Remove a project from the active registry and close its cmux workspace.
+c4j delete cmux4justn
 
 # Show focused help for one command.
 c4j help go
 c4j help cd
-c4j help wt move
-c4j help agent
+c4j help wt
 ```
 
 ## Commands
 
 Use `c4j help <command>` or `c4j <command> --help` for focused command help.
 Use `c4j help agent` for automation-friendly output conventions.
-
-### `c4j add [--dry-run|--apply] <path>...`
-
-Adds one or more directories to the active registry as symlinks, then runs `sync --direction both`.
-
-With no path, `add` only runs the two-way sync:
-
-```bash
-c4j add
-```
 
 ### `c4j go [--dry-run|--apply] [--no-cmux] <name-or-path>`
 
@@ -127,54 +106,6 @@ c4j cd .
 c4j cd --dry-run codeagora
 ```
 
-### `c4j anchor [--dry-run|--apply] [--name <title>] [--cwd <path>]`
-
-Ensures the pinned cmux anchor workspace exists. By default it uses:
-
-- title: `justn-is-always-around-here`
-- cwd: `~/Workspaces`
-- color: `Teal`
-
-```bash
-c4j anchor
-c4j anchor --dry-run
-c4j anchor --name justn-is-always-around-here --cwd ~/Workspaces
-```
-
-### `c4j delete [--dry-run|--apply] [--keep-cmux] <name-or-path>...`
-
-Removes one or more active symlinks and closes the matching cmux workspace.
-
-`delete` defaults to `--apply`. It never deletes the real project directory.
-
-```bash
-c4j delete cmux4justn
-c4j delete .
-c4j delete --dry-run cmux4justn
-c4j delete --keep-cmux cmux4justn
-```
-
-Aliases:
-
-- `remove`
-- `rm`
-
-### `c4j update [--dry-run|--apply] [--ref <ref>] [--repo-url <url>] [--install-dir <path>] [--allow-unsafe-source]`
-
-Updates the installed `c4j` binary by fetching the latest tagged release from the source repository and reinstalling from that checkout.
-
-By default it looks for the latest `v*` tag in `https://github.com/bssm-oss/cmux4justn.git` and reinstalls from `~/.local/share/c4j`.
-Use `--ref` to pin a specific trusted `v*` tag and `--install-dir` to override the local source checkout path. Custom `--repo-url` values and non-`v*` refs require `--allow-unsafe-source`.
-
-```bash
-c4j update
-c4j update --dry-run
-c4j update --ref v0.13.7
-c4j update --repo-url <url> --ref <ref> --allow-unsafe-source
-```
-
-Dry-run output includes the current CLI version, target ref, resolved target commit, and whether the local source checkout is already current.
-
 ### `c4j worktree [--dry-run|--apply] [--repo <path>] [--name <name>]`
 
 Creates a git worktree for the current repo under `~/Workspaces/worktrees`, mirroring the canonical repo path under `~/Workspaces/repos`.
@@ -199,6 +130,75 @@ c4j wt move api api-v2
 c4j worktree --repo ~/Workspaces/repos/bssm-oss/main/justn-hyeok/cmux4justn
 c4j worktree --name api
 ```
+
+### `c4j list [--plain]`
+
+Prints active symlinks and their resolved targets as a table.
+
+Use `--plain` or `--tsv` for script-friendly tab-separated output.
+
+### `c4j delete [--dry-run|--apply] [--keep-cmux] <name-or-path>...`
+
+Removes one or more active symlinks and closes the matching cmux workspace.
+
+`delete` defaults to `--apply`. It never deletes the real project directory.
+
+```bash
+c4j delete cmux4justn
+c4j delete .
+c4j delete --dry-run cmux4justn
+c4j delete --keep-cmux cmux4justn
+```
+
+Aliases:
+
+- `remove`
+- `rm`
+
+## Maintenance And Advanced
+
+These commands are useful for repair, bulk reconciliation, setup changes, and scripts. Most daily work should start with `go`, `cd`, `wt`, `list`, or `delete`.
+
+### `c4j add [--dry-run|--apply] <path>...`
+
+Adds one or more directories to the active registry as symlinks, then runs `sync --direction both`.
+
+With no path, `add` previews the two-way sync:
+
+```bash
+c4j add
+c4j add --apply
+```
+
+### `c4j anchor [--dry-run|--apply] [--name <title>] [--cwd <path>]`
+
+Ensures the pinned cmux anchor workspace exists. By default it uses:
+
+- title: `justn-is-always-around-here`
+- cwd: `~/Workspaces`
+- color: `Teal`
+
+```bash
+c4j anchor
+c4j anchor --dry-run
+c4j anchor --name justn-is-always-around-here --cwd ~/Workspaces
+```
+
+### `c4j update [--dry-run|--apply] [--ref <ref>] [--repo-url <url>] [--install-dir <path>] [--allow-unsafe-source]`
+
+Updates the installed `c4j` binary by fetching the latest tagged release from the source repository and reinstalling from that checkout.
+
+By default it looks for the latest `v*` tag in `https://github.com/bssm-oss/cmux4justn.git` and reinstalls from `~/.local/share/c4j`.
+Use `--ref` to pin a specific trusted `v*` tag and `--install-dir` to override the local source checkout path. Custom `--repo-url` values and non-`v*` refs require `--allow-unsafe-source`.
+
+```bash
+c4j update
+c4j update --dry-run
+c4j update --ref v0.13.7
+c4j update --repo-url <url> --ref <ref> --allow-unsafe-source
+```
+
+Dry-run output includes the current CLI version, target ref, resolved target commit, and whether the local source checkout is already current.
 
 ### `c4j setup [--dry-run|--apply] [--active-dir <path>] [--name-prefix <prefix>]`
 
@@ -228,12 +228,6 @@ c4j sync --dry-run --direction active-to-cmux
 ```
 
 Dry-run output ends with the exact `--apply` command to run when you want to make the planned changes.
-
-### `c4j list [--plain]`
-
-Prints active symlinks and their resolved targets as a table.
-
-Use `--plain` or `--tsv` for script-friendly tab-separated output.
 
 ### `c4j config get`
 
@@ -292,13 +286,13 @@ Prints the CLI version.
 
 ```bash
 # Install a specific release.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.7/install.sh | C4J_REF=v0.13.7 bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.7/install.sh | C4J_REF=v0.13.7 bash -s -- --rc
 
 # Install from main instead of the release pinned by the bootstrap script.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash -s -- --allow-unsafe-source
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash -s -- --rc --allow-unsafe-source
 
 # Download source somewhere else.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.7/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.7/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash -s -- --rc
 
 # Preview all installer actions.
 scripts/install.sh --dry-run
