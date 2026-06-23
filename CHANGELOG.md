@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.13.1 - 2026-06-23
+
+### Fixed
+
+- Fixed release/update tests so version fixture rewrites follow the current `VERSION` file instead of stale release literals.
+- Fixed bootstrap install tests so tag checkouts do not depend on an existing local `main` branch.
+- Updated install bootstrap references and release URLs to `v0.13.1`.
+
 ## v0.13.0 - 2026-06-23
 
 ### Added

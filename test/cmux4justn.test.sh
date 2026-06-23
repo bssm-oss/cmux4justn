@@ -7,6 +7,7 @@ TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT
 export HOME="$TMPDIR/home"
 unset C4J_CONFIG CMUX4JUSTN_CONFIG
+CURRENT_VERSION="$(tr -d '[:space:]' < "$ROOT/VERSION")"
 
 fail() {
   printf 'FAIL: %s\n' "$*" >&2
@@ -40,7 +41,7 @@ sed_inplace() {
 }
 
 output="$($CLI)"
-assert_contains "$output" "c4j v0.13.0"
+assert_contains "$output" "c4j v$CURRENT_VERSION"
 assert_contains "$output" "I want to:"
 assert_contains "$output" "go <project>"
 assert_contains "$output" "wt [name]"
@@ -671,11 +672,14 @@ assert_contains "$output" "unset	active_dir"
 BOOTSTRAP_HOME="$TMPDIR/bootstrap-home"
 BOOTSTRAP_INSTALL_DIR="$TMPDIR/bootstrap-source"
 BOOTSTRAP_ACTIVE="$TMPDIR/bootstrap-active"
+BOOTSTRAP_REPO="$TMPDIR/bootstrap-repo"
 mkdir -p "$BOOTSTRAP_HOME" "$BOOTSTRAP_ACTIVE"
+git clone "$ROOT" "$BOOTSTRAP_REPO" >/dev/null
+git -C "$BOOTSTRAP_REPO" checkout -B main >/dev/null
 cp "$ROOT/install.sh" "$TMPDIR/bootstrap-install.sh"
 chmod +x "$TMPDIR/bootstrap-install.sh"
-output="$(HOME="$BOOTSTRAP_HOME" C4J_REPO_URL="file://$ROOT" C4J_REF="main" C4J_INSTALL_DIR="$BOOTSTRAP_INSTALL_DIR" C4J_ACTIVE_DIR="$BOOTSTRAP_ACTIVE" bash "$TMPDIR/bootstrap-install.sh" --no-rc)"
-assert_contains "$output" "download-source	file://$ROOT	$BOOTSTRAP_INSTALL_DIR"
+output="$(HOME="$BOOTSTRAP_HOME" C4J_REPO_URL="file://$BOOTSTRAP_REPO" C4J_REF="main" C4J_INSTALL_DIR="$BOOTSTRAP_INSTALL_DIR" C4J_ACTIVE_DIR="$BOOTSTRAP_ACTIVE" bash "$TMPDIR/bootstrap-install.sh" --no-rc)"
+assert_contains "$output" "download-source	file://$BOOTSTRAP_REPO	$BOOTSTRAP_INSTALL_DIR"
 assert_contains "$output" "installed-bin	$BOOTSTRAP_HOME/.local/bin/c4j"
 assert_contains "$output" "active-dir"
 [ -x "$BOOTSTRAP_HOME/.local/bin/c4j" ] || fail "bootstrap install should create c4j executable"
@@ -685,9 +689,9 @@ STDIN_BOOTSTRAP_INSTALL_DIR="$TMPDIR/stdin-bootstrap-source"
 STDIN_BOOTSTRAP_ACTIVE="$TMPDIR/stdin-bootstrap-active"
 STDIN_BOOTSTRAP_ERR="$TMPDIR/stdin-bootstrap.err"
 mkdir -p "$STDIN_BOOTSTRAP_HOME" "$STDIN_BOOTSTRAP_ACTIVE"
-output="$(HOME="$STDIN_BOOTSTRAP_HOME" C4J_REPO_URL="file://$ROOT" C4J_REF="main" C4J_INSTALL_DIR="$STDIN_BOOTSTRAP_INSTALL_DIR" C4J_ACTIVE_DIR="$STDIN_BOOTSTRAP_ACTIVE" bash -s -- --no-rc < "$ROOT/install.sh" 2>"$STDIN_BOOTSTRAP_ERR")"
+output="$(HOME="$STDIN_BOOTSTRAP_HOME" C4J_REPO_URL="file://$BOOTSTRAP_REPO" C4J_REF="main" C4J_INSTALL_DIR="$STDIN_BOOTSTRAP_INSTALL_DIR" C4J_ACTIVE_DIR="$STDIN_BOOTSTRAP_ACTIVE" bash -s -- --no-rc < "$ROOT/install.sh" 2>"$STDIN_BOOTSTRAP_ERR")"
 ! grep -q "BASH_SOURCE" "$STDIN_BOOTSTRAP_ERR" || fail "stdin bootstrap should not warn about BASH_SOURCE"
-assert_contains "$output" "download-source	file://$ROOT	$STDIN_BOOTSTRAP_INSTALL_DIR"
+assert_contains "$output" "download-source	file://$BOOTSTRAP_REPO	$STDIN_BOOTSTRAP_INSTALL_DIR"
 assert_contains "$output" "installed-bin	$STDIN_BOOTSTRAP_HOME/.local/bin/c4j"
 [ -x "$STDIN_BOOTSTRAP_HOME/.local/bin/c4j" ] || fail "stdin bootstrap install should create c4j executable"
 
@@ -703,8 +707,8 @@ chmod +x "$UPDATE_BIN_DIR/c4j"
 git clone "$ROOT" "$UPDATE_SOURCE" >/dev/null
 git -C "$UPDATE_SOURCE" config user.name "Test User"
 git -C "$UPDATE_SOURCE" config user.email "test@example.com"
-sed_inplace 's/^VERSION="0\.12\.0"/VERSION="9.9.9"/' "$UPDATE_SOURCE/bin/cmux4justn"
-sed_inplace 's/^0\.12\.0$/9.9.9/' "$UPDATE_SOURCE/VERSION"
+sed_inplace 's/^VERSION="[0-9][0-9.]*"/VERSION="9.9.9"/' "$UPDATE_SOURCE/bin/cmux4justn"
+sed_inplace 's/^[0-9][0-9.]*$/9.9.9/' "$UPDATE_SOURCE/VERSION"
 git -C "$UPDATE_SOURCE" add VERSION bin/cmux4justn
 git -C "$UPDATE_SOURCE" commit -m "bump test version" >/dev/null
 git -C "$UPDATE_SOURCE" tag v9.9.9
@@ -719,8 +723,8 @@ assert_contains "$output" "update-cli	v9.9.9	$UPDATE_INSTALL_DIR"
 git clone "$ROOT" "$UPDATE_ALT_SOURCE" >/dev/null
 git -C "$UPDATE_ALT_SOURCE" config user.name "Test User"
 git -C "$UPDATE_ALT_SOURCE" config user.email "test@example.com"
-sed_inplace 's/^VERSION="0\.12\.0"/VERSION="8.8.8"/' "$UPDATE_ALT_SOURCE/bin/cmux4justn"
-sed_inplace 's/^0\.12\.0$/8.8.8/' "$UPDATE_ALT_SOURCE/VERSION"
+sed_inplace 's/^VERSION="[0-9][0-9.]*"/VERSION="8.8.8"/' "$UPDATE_ALT_SOURCE/bin/cmux4justn"
+sed_inplace 's/^[0-9][0-9.]*$/8.8.8/' "$UPDATE_ALT_SOURCE/VERSION"
 git -C "$UPDATE_ALT_SOURCE" add VERSION bin/cmux4justn
 git -C "$UPDATE_ALT_SOURCE" commit -m "alt test version" >/dev/null
 git -C "$UPDATE_ALT_SOURCE" tag v8.8.8
@@ -729,7 +733,7 @@ output="$(C4J_REPO_URL="file://$UPDATE_ALT_REMOTE" C4J_BIN_DIR="$UPDATE_BIN_DIR"
 assert_contains "$output" "update-cli	v8.8.8	$UPDATE_INSTALL_DIR"
 [ "$("$UPDATE_BIN_DIR/c4j" version)" = "8.8.8" ] || fail "update should fetch refs from an overridden repo-url even when install dir exists"
 
-[ "$($CLI version)" = "0.13.0" ] || fail "version mismatch"
-[ "$("$ROOT/bin/cmux4justn" version)" = "0.13.0" ] || fail "legacy version mismatch"
+[ "$($CLI version)" = "$CURRENT_VERSION" ] || fail "version mismatch"
+[ "$("$ROOT/bin/cmux4justn" version)" = "$CURRENT_VERSION" ] || fail "legacy version mismatch"
 
 printf 'PASS cmux4justn tests\n'
