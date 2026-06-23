@@ -34,7 +34,8 @@ if [ -d "$INSTALL_DIR/.git" ]; then
 else
   printf 'download-source\t%s\t%s\n' "$REPO_URL" "$INSTALL_DIR"
   mkdir -p "$(dirname "$INSTALL_DIR")"
-  git clone -q --depth 1 --no-checkout "$REPO_URL" "$INSTALL_DIR"
+  git init -q "$INSTALL_DIR"
+  git -C "$INSTALL_DIR" remote add origin "$REPO_URL"
   git -C "$INSTALL_DIR" fetch -q --depth 1 origin "$REF"
   git -C "$INSTALL_DIR" -c advice.detachedHead=false checkout -q FETCH_HEAD
 fi

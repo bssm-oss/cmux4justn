@@ -81,7 +81,7 @@ _c4j_complete() {
   field="${COMP_WORDS[3]:-}"
 
   case "$prev" in
-    --cwd|--active-dir|--repo)
+    --cwd|--active-dir|--repo|--cmux)
       _c4j__complete_dirs "$cur"
       return 0
       ;;
@@ -141,10 +141,10 @@ _c4j_complete() {
       config)
         case "$subcommand" in
           set)
-            _c4j__complete_words "$cur" active-dir cmux-bin name-prefix prefix workspace-dir workspace-file workspace-prefix
+            _c4j__complete_words "$cur" -h --help
             ;;
           unset)
-            _c4j__complete_words "$cur" active-dir name-prefix
+            _c4j__complete_words "$cur" -h --help
             ;;
           *)
             _c4j__complete_words "$cur" get set unset path -h --help
@@ -294,7 +294,7 @@ _c4j_complete() {
           esac
           ;;
         unset)
-          _c4j__complete_words "$cur" active-dir name-prefix prefix workspace-dir workspace-file workspace-prefix
+          _c4j__complete_words "$cur" active-dir cmux-bin name-prefix prefix workspace-dir workspace-file workspace-prefix
           ;;
         *)
           _c4j__complete_words "$cur" get set unset path
@@ -304,7 +304,7 @@ _c4j_complete() {
     help)
       case "$subcommand" in
         worktree|wt)
-          _c4j__complete_words "$cur" list prune move delete update
+          _c4j__complete_words "$cur" list ls prune move delete remove rm update refresh up
           ;;
         "")
           _c4j__complete_help_topics "$cur"
@@ -318,6 +318,9 @@ _c4j_complete() {
       case "$prev" in
         --direction)
           _c4j__complete_words "$cur" active-to-cmux cmux-to-active both
+          ;;
+        --name-prefix)
+          COMPREPLY=()
           ;;
         *)
           _c4j__complete_words "$cur" --dry-run --apply --direction --active-dir --cmux --name-prefix

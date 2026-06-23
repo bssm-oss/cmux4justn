@@ -17,7 +17,10 @@ assert_contains() {
   local haystack="$1"
   local needle="$2"
   if ! printf '%s\n' "$haystack" | grep -F -- "$needle" >/dev/null; then
-    fail "expected output to contain: $needle"
+    fail "expected output to contain: $needle
+--- actual output ---
+$haystack
+--- end ---"
   fi
 }
 
@@ -27,6 +30,13 @@ assert_not_contains() {
   if printf '%s\n' "$haystack" | grep -F -- "$needle" >/dev/null; then
     fail "expected output not to contain: $needle"
   fi
+}
+
+sed_inplace() {
+  local pattern="$1"
+  local file="$2"
+  sed -i.bak "$pattern" "$file"
+  rm -f "$file.bak"
 }
 
 output="$($CLI)"
@@ -254,6 +264,11 @@ assert_contains "$output" "move-worktree	api	$WORKTREE_ROOT_RESOLVED/api	$WORKTR
 [ -d "$WORKTREE_ROOT_RESOLVED/api-v2" ] || fail "move should create the destination worktree path"
 assert_contains "$(git -C "$WORKTREE_ROOT_RESOLVED/api-v2" branch --show-current)" "worktree/api"
 
+if output="$($CLI wt move --target api-v2 ignored-source ignored-destination 2>&1)"; then
+  fail "move should reject positional source when --target is already set"
+fi
+assert_contains "$output" "worktree move accepts at most one source and one destination"
+
 rm -rf "$WORKTREE_ROOT_RESOLVED/prune-me"
 output="$($CLI wt prune)"
 assert_contains "$output" "prune-worktree-repo	cmux4justn	$WORKTREE_REPO_RESOLVED"
@@ -457,6 +472,18 @@ COMP_WORDS=(c4j help wt "")
 COMP_CWORD=3
 _c4j_complete
 assert_contains "${COMPREPLY[*]}" "move"
+COMP_WORDS=(c4j help wt r)
+COMP_CWORD=3
+_c4j_complete
+assert_contains "${COMPREPLY[*]}" "remove"
+COMP_WORDS=(c4j config unset cmux-)
+COMP_CWORD=3
+_c4j_complete
+assert_contains "${COMPREPLY[*]}" "cmux-bin"
+COMP_WORDS=(c4j sync --cmux "")
+COMP_CWORD=3
+_c4j_complete
+assert_contains "${COMPREPLY[*]}" "alpha"
 cd "$OLDPWD"
 
 INSTALL_RC="$TMPDIR/zshrc"
@@ -508,6 +535,33 @@ HOME="$INSTALL_HOME" C4J_ACTIVE_DIR="$ACTIVE" C4J_CMUX_BIN="$FAKE_CMUX" bash "$W
 [ "$(cat "$WRAPPER_PWD")" = "$PROJECTS_RESOLVED/alpha" ] || fail "wrapper cd should change the caller shell directory"
 [ ! -s "$WRAPPER_OUT" ] || fail "wrapper cd should be quiet on success"
 assert_contains "$(cat "$WRAPPER_DRY_RUN_OUT")" "would-cd-project	beta	$PROJECTS_RESOLVED/beta"
+
+BROKEN_RC="$TMPDIR/broken-zshrc"
+printf '%s\n' "keep-before" "# >>> c4j >>>" "keep-after" > "$BROKEN_RC"
+if install_output="$(run_install --shell-rc "$BROKEN_RC" --no-bin 2>&1)"; then
+  fail "install should reject shell rc with an unmatched c4j marker"
+fi
+assert_contains "$install_output" "without matching"
+assert_contains "$(cat "$BROKEN_RC")" "keep-after"
+
+SPACE_RC="$TMPDIR/space-zshrc"
+SPACE_BIN_DIR="$TMPDIR/bin with spaces"
+mkdir -p "$SPACE_BIN_DIR"
+install_output="$(run_install --shell-rc "$SPACE_RC" --bin-dir "$SPACE_BIN_DIR")"
+assert_contains "$install_output" "installed-bin	$SPACE_BIN_DIR/c4j"
+SPACE_WRAPPER_OUT="$TMPDIR/space-wrapper-out"
+SPACE_WRAPPER_SCRIPT="$TMPDIR/space-wrapper-check.sh"
+cat > "$SPACE_WRAPPER_SCRIPT" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+source "$SPACE_RC"
+cd "$TMPDIR"
+c4j cd alpha > "$SPACE_WRAPPER_OUT"
+pwd -P > "$WRAPPER_PWD"
+EOF
+HOME="$INSTALL_HOME" C4J_ACTIVE_DIR="$ACTIVE" C4J_CMUX_BIN="$FAKE_CMUX" bash "$SPACE_WRAPPER_SCRIPT"
+[ "$(cat "$WRAPPER_PWD")" = "$PROJECTS_RESOLVED/alpha" ] || fail "wrapper should support bin dirs with spaces"
+assert_contains "$(cat "$SPACE_RC")" "bin\\ with\\ spaces/c4j"
 
 rm -f "$INSTALL_RC" "$INSTALL_BIN_DIR/c4j"
 
@@ -566,6 +620,12 @@ plist_content="$(cat "$LAUNCH_AGENTS_DIR/com.justn.c4j.sync.plist")"
 assert_contains "$plist_content" "--dry-run"
 assert_contains "$plist_content" "$ROOT/bin/c4j"
 
+if launch_output="$(bash "$ROOT/scripts/launchd.sh" install --apply --launch-agents-dir "$LAUNCH_AGENTS_DIR" --label "../bad" 2>&1)"; then
+  fail "launchd should reject unsafe labels"
+fi
+assert_contains "$launch_output" "invalid label"
+[ ! -e "$LAUNCH_AGENTS_DIR/../bad.plist" ] || fail "launchd unsafe label should not write outside LaunchAgents"
+
 launch_output="$(bash "$ROOT/scripts/launchd.sh" install --apply --load --launch-agents-dir "$LAUNCH_AGENTS_DIR" --launchctl "$LAUNCHCTL_STUB" --sync-apply)"
 assert_contains "$launch_output" "loaded"
 [ -e "$CMUX_LAUNCHCTL_CALLS" ] || fail "launchd install --load should call launchctl"
@@ -594,6 +654,14 @@ output="$(env -u C4J_ACTIVE_DIR -u CMUX4JUSTN_ACTIVE_DIR HOME="$CONFIG_HOME" C4J
 assert_contains "$output" "name_prefix	mine/"
 output="$(env -u C4J_ACTIVE_DIR -u CMUX4JUSTN_ACTIVE_DIR HOME="$CONFIG_HOME" C4J_CMUX_BIN="$FAKE_CMUX" "$CLI" config unset prefix)"
 assert_contains "$output" "unset	name_prefix"
+output="$(env -u C4J_ACTIVE_DIR -u CMUX4JUSTN_ACTIVE_DIR HOME="$CONFIG_HOME" "$CLI" config set cmux-bin "$FAKE_CMUX")"
+assert_contains "$output" "set	cmux_bin	$FAKE_CMUX"
+if output="$(env -u C4J_ACTIVE_DIR -u CMUX4JUSTN_ACTIVE_DIR HOME="$CONFIG_HOME" "$CLI" config set cmux-bin $'bad\nvalue' 2>&1)"; then
+  fail "cmux-bin config should reject newlines"
+fi
+assert_contains "$output" "invalid value for cmux-bin"
+output="$(env -u C4J_ACTIVE_DIR -u CMUX4JUSTN_ACTIVE_DIR HOME="$CONFIG_HOME" "$CLI" config unset cmux-bin)"
+assert_contains "$output" "unset	cmux_bin"
 output="$(env -u C4J_ACTIVE_DIR -u CMUX4JUSTN_ACTIVE_DIR HOME="$CONFIG_HOME" C4J_CMUX_BIN="$FAKE_CMUX" "$CLI" doctor)"
 assert_contains "$output" "config_file	$CONFIG_HOME/.c4j/config	ok"
 assert_contains "$output" "active_dir	$CONFIG_ACTIVE_RESOLVED	ok"
@@ -635,8 +703,8 @@ chmod +x "$UPDATE_BIN_DIR/c4j"
 git clone "$ROOT" "$UPDATE_SOURCE" >/dev/null
 git -C "$UPDATE_SOURCE" config user.name "Test User"
 git -C "$UPDATE_SOURCE" config user.email "test@example.com"
-sed -i '' 's/^VERSION="0\.12\.0"/VERSION="9.9.9"/' "$UPDATE_SOURCE/bin/cmux4justn"
-sed -i '' 's/^0\.12\.0$/9.9.9/' "$UPDATE_SOURCE/VERSION"
+sed_inplace 's/^VERSION="0\.12\.0"/VERSION="9.9.9"/' "$UPDATE_SOURCE/bin/cmux4justn"
+sed_inplace 's/^0\.12\.0$/9.9.9/' "$UPDATE_SOURCE/VERSION"
 git -C "$UPDATE_SOURCE" add VERSION bin/cmux4justn
 git -C "$UPDATE_SOURCE" commit -m "bump test version" >/dev/null
 git -C "$UPDATE_SOURCE" tag v9.9.9
@@ -651,8 +719,8 @@ assert_contains "$output" "update-cli	v9.9.9	$UPDATE_INSTALL_DIR"
 git clone "$ROOT" "$UPDATE_ALT_SOURCE" >/dev/null
 git -C "$UPDATE_ALT_SOURCE" config user.name "Test User"
 git -C "$UPDATE_ALT_SOURCE" config user.email "test@example.com"
-sed -i '' 's/^VERSION="0\.12\.0"/VERSION="8.8.8"/' "$UPDATE_ALT_SOURCE/bin/cmux4justn"
-sed -i '' 's/^0\.12\.0$/8.8.8/' "$UPDATE_ALT_SOURCE/VERSION"
+sed_inplace 's/^VERSION="0\.12\.0"/VERSION="8.8.8"/' "$UPDATE_ALT_SOURCE/bin/cmux4justn"
+sed_inplace 's/^0\.12\.0$/8.8.8/' "$UPDATE_ALT_SOURCE/VERSION"
 git -C "$UPDATE_ALT_SOURCE" add VERSION bin/cmux4justn
 git -C "$UPDATE_ALT_SOURCE" commit -m "alt test version" >/dev/null
 git -C "$UPDATE_ALT_SOURCE" tag v8.8.8

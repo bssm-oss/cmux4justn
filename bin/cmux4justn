@@ -927,6 +927,10 @@ config_value_for_field() {
       resolve_dir "$value" || return 1
       ;;
     cmux-bin)
+      [ -n "$value" ] || return 1
+      case "$value" in
+        *$'\t'*|*$'\r'*|*$'\n'*) return 1 ;;
+      esac
       printf '%s\n' "$value"
       ;;
     name-prefix|prefix|workspace-prefix)
@@ -948,7 +952,7 @@ config_write_value() {
   local dir tmp_file
   dir="$(dirname "$CONFIG_FILE")"
   mkdir -p "$dir"
-  tmp_file="$(mktemp)"
+  tmp_file="$(mktemp "$dir/.c4j.config.XXXXXX")"
   if [ -f "$CONFIG_FILE" ]; then
     awk -F '=' -v key="$key" '$1 != key { print }' "$CONFIG_FILE" > "$tmp_file"
   fi
@@ -960,7 +964,7 @@ config_unset_value() {
   local key="$1"
   local tmp_file
   [ -f "$CONFIG_FILE" ] || return 0
-  tmp_file="$(mktemp)"
+  tmp_file="$(mktemp "$(dirname "$CONFIG_FILE")/.c4j.config.XXXXXX")"
   awk -F '=' -v key="$key" '$1 != key { print }' "$CONFIG_FILE" > "$tmp_file"
   mv "$tmp_file" "$CONFIG_FILE"
 }
@@ -1179,8 +1183,15 @@ active_name_for_query() {
 
   local match_count
   match_count="$(wc -l < "$matches_file" | tr -d ' ')"
-  [ "$match_count" -eq 1 ] || return 1
-  cat "$matches_file"
+  if [ "$match_count" -eq 1 ]; then
+    cat "$matches_file"
+    return 0
+  fi
+  if [ "$match_count" -gt 1 ]; then
+    cat "$matches_file"
+    return 2
+  fi
+  return 1
 }
 
 cmd_go() {
@@ -1247,7 +1258,12 @@ cmd_go() {
   if target="$(resolve_dir "$query" 2>/dev/null)"; then
     name="$(basename "$target")"
   else
-    name="$(active_name_for_query "$query" 2>/dev/null)" || fail "active project not found: $query"
+    local name_status=0
+    name="$(active_name_for_query "$query")" || name_status=$?
+    if [ "$name_status" -eq 2 ]; then
+      fail "active project is ambiguous: $query ($(printf '%s\n' "$name" | tr '\n' ' ' | sed 's/[[:space:]]*$//'))"
+    fi
+    [ "$name_status" -eq 0 ] || fail "active project not found: $query"
     target="$(resolve_dir "$ACTIVE_DIR/$name")" || fail "active link is broken: $ACTIVE_DIR/$name"
   fi
 
@@ -1366,7 +1382,12 @@ cmd_cd() {
   if target="$(resolve_dir "$query" 2>/dev/null)"; then
     name="$(basename "$target")"
   else
-    name="$(active_name_for_query "$query" 2>/dev/null)" || fail "active project not found: $query"
+    local name_status=0
+    name="$(active_name_for_query "$query")" || name_status=$?
+    if [ "$name_status" -eq 2 ]; then
+      fail "active project is ambiguous: $query ($(printf '%s\n' "$name" | tr '\n' ' ' | sed 's/[[:space:]]*$//'))"
+    fi
+    [ "$name_status" -eq 0 ] || fail "active project not found: $query"
     target="$(resolve_dir "$ACTIVE_DIR/$name")" || fail "active link is broken: $ACTIVE_DIR/$name"
   fi
 
@@ -2021,6 +2042,8 @@ cmd_worktree_move() {
       if [ "$source_set" -eq 0 ] && [ -z "$source" ]; then
         source="${positional[0]}"
         source_set=1
+      else
+        fail "worktree move accepts at most one source and one destination"
       fi
       if [ -z "$destination" ]; then
         destination="${positional[1]}"

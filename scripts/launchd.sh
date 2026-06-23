@@ -59,6 +59,14 @@ plist_path() {
   printf '%s/%s.plist\n' "$LAUNCH_AGENTS_DIR" "$LABEL"
 }
 
+validate_label() {
+  case "$LABEL" in
+    ""|*".."*|*/*|*$'\t'*|*$'\r'*|*$'\n'*)
+      fail "invalid label: $LABEL"
+      ;;
+  esac
+}
+
 build_plist() {
   local arg_sync_mode="--dry-run"
   if [ "$SYNC_APPLY" -eq 1 ]; then
@@ -174,6 +182,7 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
+validate_label
 PLIST_PATH="$(plist_path)"
 
 case "$COMMAND" in
@@ -191,7 +200,15 @@ case "$COMMAND" in
     fi
 
     mkdir -p "$LAUNCH_AGENTS_DIR"
-    build_plist > "$PLIST_PATH"
+    tmp_plist="$(mktemp "$LAUNCH_AGENTS_DIR/.c4j.plist.XXXXXX")"
+    build_plist > "$tmp_plist"
+    if command -v plutil >/dev/null 2>&1; then
+      plutil -lint "$tmp_plist" >/dev/null || {
+        rm -f "$tmp_plist"
+        fail "generated plist is malformed: $PLIST_PATH"
+      }
+    fi
+    mv "$tmp_plist" "$PLIST_PATH"
     printf 'installed\t%s\n' "$PLIST_PATH"
 
     if [ "$LOAD" -eq 1 ]; then

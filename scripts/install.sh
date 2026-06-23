@@ -88,11 +88,12 @@ print_next_steps() {
 
 write_wrapper_block() {
   local shell_rc="$1"
-  local wrapper_file tmp_file
+  local wrapper_file tmp_file shell_rc_dir
+  shell_rc_dir="$(dirname "$shell_rc")"
   wrapper_file="$(mktemp)"
-  tmp_file="$(mktemp)"
+  tmp_file="$(mktemp "$shell_rc_dir/.c4j.rc.XXXXXX")"
   printf '%s\n' "$WRAPPER_FUNCTION" > "$wrapper_file"
-  awk -v start="$MARKER_START" -v end="$MARKER_END" -v wrapper_file="$wrapper_file" '
+  if ! awk -v start="$MARKER_START" -v end="$MARKER_END" -v wrapper_file="$wrapper_file" '
     BEGIN { in_block = 0 }
     $0 == start {
       print
@@ -109,8 +110,12 @@ write_wrapper_block() {
       next
     }
     in_block { next }
+    END { if (in_block) exit 1 }
     { print }
-  ' "$shell_rc" > "$tmp_file"
+  ' "$shell_rc" > "$tmp_file"; then
+    rm -f "$wrapper_file" "$tmp_file"
+    fail "shell rc has $MARKER_START without matching $MARKER_END: $shell_rc"
+  fi
   mv "$tmp_file" "$shell_rc"
   rm -f "$wrapper_file"
 }
@@ -177,9 +182,10 @@ while [ "$#" -gt 0 ]; do
 done
 
 TARGET_CLI="$BIN_DIR/c4j"
+TARGET_CLI_ESCAPED="$(printf '%q' "$TARGET_CLI")"
 WRAPPER_FUNCTION="c4j() {
   local c4j_output c4j_status c4j_target_path
-  c4j_output=\"\$($TARGET_CLI \"\$@\" 2>&1)\"
+  c4j_output=\"\$($TARGET_CLI_ESCAPED \"\$@\" 2>&1)\"
   c4j_status=\$?
   if [ \"\$c4j_status\" -ne 0 ]; then
     printf '%s\n' \"\$c4j_output\"
@@ -288,10 +294,11 @@ else
 fi
 
 if [ "$WRITE_CONFIG" -eq 1 ]; then
-  mkdir -p "$(dirname "$CONFIG_FILE")"
-  tmp_config="$(mktemp)"
+  config_dir="$(dirname "$CONFIG_FILE")"
+  mkdir -p "$config_dir"
+  tmp_config="$(mktemp "$config_dir/.c4j.config.XXXXXX")"
   if [ -f "$CONFIG_FILE" ]; then
-    awk -F '=' '$1 != "active_dir" { print }' "$CONFIG_FILE" > "$tmp_config"
+    awk -F '=' '{ key = $1; gsub(/^[ \t]+|[ \t]+$/, "", key); if (key != "active_dir") print }' "$CONFIG_FILE" > "$tmp_config"
   fi
   printf 'active_dir=%s\n' "$ACTIVE_DIR" >> "$tmp_config"
   mv "$tmp_config" "$CONFIG_FILE"
