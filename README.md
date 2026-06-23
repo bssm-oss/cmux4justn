@@ -13,6 +13,7 @@ It gives cmux users a small workspace manager for adding projects, listing activ
 - One-line macOS install with a plain Bash script.
 - Active project registry backed by symlinks in `~/.c4j/active`.
 - Fast project jump with `c4j go <name-or-path>`.
+- Quiet shell directory jump with `c4j cd <name-or-path>`.
 - cmux workspace sync with configurable title prefixes such as `@active/`.
 - Pinned cmux anchor workspace support through `c4j anchor`.
 - Git worktree creation for the current repo.
@@ -45,6 +46,9 @@ c4j doctor
 c4j go cmux4justn
 c4j go ~/Workspaces/repos/bssm-oss/main/justn-hyeok/cmux4justn
 
+# Change only the current shell directory.
+c4j cd cmux4justn
+
 # Add a project and sync cmux.
 c4j add ~/Workspaces/repos/bssm-oss/main/justn-hyeok/cmux4justn
 
@@ -74,6 +78,7 @@ c4j sync --direction both --apply
 
 # Show focused help for one command.
 c4j help go
+c4j help cd
 c4j help wt move
 c4j help agent
 ```
@@ -108,6 +113,18 @@ c4j go .
 c4j go ~/Workspaces/repos/bssm-oss/main/justn-hyeok/cmux4justn
 c4j go --dry-run cmux4justn
 c4j go --no-cmux cmux4justn
+```
+
+### `c4j cd [--dry-run|--apply] <name-or-path>`
+
+Changes the current shell directory to an active project by name, or to a directory path. It does not touch cmux and does not add new active symlinks.
+
+Like any `cd` helper, this requires the shell wrapper installed with `scripts/install.sh --rc`. Without that wrapper, the standalone executable can only print the resolved target row for scripts.
+
+```bash
+c4j cd cmux4justn
+c4j cd .
+c4j cd --dry-run codeagora
 ```
 
 ### `c4j anchor [--dry-run|--apply] [--name <title>] [--cwd <path>]`

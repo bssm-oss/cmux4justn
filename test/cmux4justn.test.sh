@@ -374,6 +374,19 @@ assert_contains "$output" "go-project	legacy	$PROJECTS_RESOLVED/legacy"
 [ -L "$ACTIVE/legacy" ] || fail "go path should add a missing active link"
 [ ! -e "$CALLS" ] || fail "go --no-cmux should not call cmux"
 
+rm -f "$CALLS"
+output="$($CLI cd alpha)"
+assert_contains "$output" "cd-project	alpha	$PROJECTS_RESOLVED/alpha"
+[ ! -e "$CALLS" ] || fail "cd should not call cmux"
+
+output="$($CLI cd --dry-run beta)"
+assert_contains "$output" "would-cd-project	beta	$PROJECTS_RESOLVED/beta"
+
+if output="$($CLI cd missing-project 2>&1)"; then
+  fail "cd should fail for a missing active project"
+fi
+assert_contains "$output" "active project not found: missing-project"
+
 CONFLICT_PROJECT="$PROJECTS/conflict"
 rm -f "$ACTIVE/conflict"
 mkdir -p "$CONFLICT_PROJECT"
@@ -427,6 +440,10 @@ COMP_WORDS=(c4j add "")
 COMP_CWORD=2
 _c4j_complete
 assert_contains "${COMPREPLY[*]}" "beta"
+COMP_WORDS=(c4j cd beta-)
+COMP_CWORD=2
+_c4j_complete
+assert_contains "${COMPREPLY[*]}" "beta-copy"
 COMP_WORDS=(c4j h)
 COMP_CWORD=1
 _c4j_complete
@@ -470,8 +487,28 @@ assert_contains "$install_output" "skip existing-bin	$INSTALL_BIN_DIR/c4j"
 assert_contains "$install_output" "updated-rc	$INSTALL_RC"
 assert_contains "$install_output" "installed-completion	$INSTALL_RC"
 assert_contains "$(cat "$INSTALL_RC")" "c4j()"
+assert_contains "$(cat "$INSTALL_RC")" "cd-project"
 assert_contains "$(cat "$INSTALL_RC")" "builtin cd --"
 assert_contains "$(cat "$INSTALL_RC")" "source $ROOT/completions/c4j.bash"
+
+WRAPPER_OUT="$TMPDIR/wrapper-out"
+WRAPPER_DRY_RUN_OUT="$TMPDIR/wrapper-dry-run-out"
+WRAPPER_PWD="$TMPDIR/wrapper-pwd"
+WRAPPER_SCRIPT="$TMPDIR/wrapper-check.sh"
+cat > "$WRAPPER_SCRIPT" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+source "$INSTALL_RC"
+cd "$TMPDIR"
+c4j cd alpha > "$WRAPPER_OUT"
+pwd -P > "$WRAPPER_PWD"
+c4j cd --dry-run beta > "$WRAPPER_DRY_RUN_OUT"
+EOF
+HOME="$INSTALL_HOME" C4J_ACTIVE_DIR="$ACTIVE" C4J_CMUX_BIN="$FAKE_CMUX" bash "$WRAPPER_SCRIPT"
+[ "$(cat "$WRAPPER_PWD")" = "$PROJECTS_RESOLVED/alpha" ] || fail "wrapper cd should change the caller shell directory"
+[ ! -s "$WRAPPER_OUT" ] || fail "wrapper cd should be quiet on success"
+assert_contains "$(cat "$WRAPPER_DRY_RUN_OUT")" "would-cd-project	beta	$PROJECTS_RESOLVED/beta"
+
 rm -f "$INSTALL_RC" "$INSTALL_BIN_DIR/c4j"
 
 install_output="$(run_install --dry-run --shell-rc "$INSTALL_RC" --bin-dir "$INSTALL_BIN_DIR")"

@@ -178,25 +178,42 @@ done
 
 TARGET_CLI="$BIN_DIR/c4j"
 WRAPPER_FUNCTION="c4j() {
-  local c4j_output c4j_status c4j_worktree_path
+  local c4j_output c4j_status c4j_target_path
   c4j_output=\"\$($TARGET_CLI \"\$@\" 2>&1)\"
   c4j_status=\$?
-  printf '%s\n' \"\$c4j_output\"
   if [ \"\$c4j_status\" -ne 0 ]; then
+    printf '%s\n' \"\$c4j_output\"
     return \"\$c4j_status\"
   fi
   case \"\${1:-}\" in
+    cd)
+      c4j_target_path=\$(printf '%s\n' \"\$c4j_output\" | awk -F '\\t' '\$1 == \"cd-project\" { print \$3; exit }')
+      if [ -n \"\$c4j_target_path\" ]; then
+        if [ -d \"\$c4j_target_path\" ]; then
+          builtin cd -- \"\$c4j_target_path\"
+          return \$?
+        fi
+        printf '%s\n' \"\$c4j_output\"
+        return 1
+      fi
+      printf '%s\n' \"\$c4j_output\"
+      ;;
     go)
-      c4j_worktree_path=\$(printf '%s\n' \"\$c4j_output\" | awk -F '\\t' '\$1 == \"go-project\" { print \$3; exit }')
-      if [ -n \"\$c4j_worktree_path\" ] && [ -d \"\$c4j_worktree_path\" ]; then
-        builtin cd -- \"\$c4j_worktree_path\"
+      printf '%s\n' \"\$c4j_output\"
+      c4j_target_path=\$(printf '%s\n' \"\$c4j_output\" | awk -F '\\t' '\$1 == \"go-project\" { print \$3; exit }')
+      if [ -n \"\$c4j_target_path\" ] && [ -d \"\$c4j_target_path\" ]; then
+        builtin cd -- \"\$c4j_target_path\"
       fi
       ;;
     worktree|wt|pane|make-pane)
-      c4j_worktree_path=\$(printf '%s\n' \"\$c4j_output\" | awk -F '\\t' '(\$1 == \"create-worktree\" || \$1 == \"reuse-worktree\") { print \$3; exit } \$1 == \"move-worktree\" { print \$4; exit }')
-      if [ -n \"\$c4j_worktree_path\" ] && [ -d \"\$c4j_worktree_path\" ]; then
-        builtin cd -- \"\$c4j_worktree_path\"
+      printf '%s\n' \"\$c4j_output\"
+      c4j_target_path=\$(printf '%s\n' \"\$c4j_output\" | awk -F '\\t' '(\$1 == \"create-worktree\" || \$1 == \"reuse-worktree\") { print \$3; exit } \$1 == \"move-worktree\" { print \$4; exit }')
+      if [ -n \"\$c4j_target_path\" ] && [ -d \"\$c4j_target_path\" ]; then
+        builtin cd -- \"\$c4j_target_path\"
       fi
+      ;;
+    *)
+      printf '%s\n' \"\$c4j_output\"
       ;;
   esac
 }"
@@ -295,6 +312,7 @@ touch "$SHELL_RC"
 wrapper_present=0
 completion_present=0
 if grep -F "$MARKER_START" "$SHELL_RC" >/dev/null 2>&1 &&
+  grep -F "cd-project" "$SHELL_RC" >/dev/null 2>&1 &&
   grep -F "go-project" "$SHELL_RC" >/dev/null 2>&1 &&
   grep -F "move-worktree" "$SHELL_RC" >/dev/null 2>&1; then
   wrapper_present=1

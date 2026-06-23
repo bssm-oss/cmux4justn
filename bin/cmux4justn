@@ -29,6 +29,7 @@ c4j v$VERSION - project switcher for cmux
 
 I want to:
   c4j go <project>      open a project and focus its cmux workspace
+  c4j cd <project>      change directory to an active project
   c4j wt [name]         make a worktree for the current repo
   c4j list              show active projects
   c4j sync --apply      sync active projects to cmux
@@ -40,6 +41,7 @@ Set up or fix:
 
 More help:
   c4j help go
+  c4j help cd
   c4j help wt
   c4j help agent
   c4j help config
@@ -71,6 +73,22 @@ Try:
 Notes:
   default is --apply
   --dry-run previews without changing anything
+USAGE
+      ;;
+    cd)
+      cat <<'USAGE'
+c4j cd <project-or-folder>
+
+Change directory to an active project by name, or to a directory path.
+This does not touch cmux and does not add new active project links.
+
+Try:
+  c4j cd cmux4justn
+  c4j cd .
+  c4j cd --dry-run codeagora
+
+Note:
+  shell directory changes require the wrapper installed by scripts/install.sh --rc
 USAGE
       ;;
     go)
@@ -192,6 +210,7 @@ Prefer plain output when reading lists:
   c4j wt list --plain
 
 Parse action rows by the first tab-separated field:
+  cd-project       <name> <path>
   go-project       <name> <path>
   create-worktree  <name> <path> <branch>
   reuse-worktree   <name> <path>
@@ -1298,6 +1317,66 @@ cmd_go() {
   fi
 
   [ "$added_link" -eq 0 ] || true
+}
+
+cmd_cd() {
+  local mode="apply"
+  local query=""
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --dry-run)
+        mode="dry-run"
+        shift
+        ;;
+      --apply)
+        mode="apply"
+        shift
+        ;;
+      --active-dir)
+        [ "$#" -ge 2 ] || fail "--active-dir requires a path"
+        ACTIVE_DIR="$2"
+        shift 2
+        ;;
+      -h|--help)
+        command_help cd
+        exit 0
+        ;;
+      --)
+        shift
+        [ "$#" -eq 1 ] || fail "cd requires exactly one name or path"
+        query="$1"
+        shift
+        ;;
+      --*)
+        fail "unknown cd option: $1"
+        ;;
+      *)
+        [ -z "$query" ] || fail "cd requires exactly one name or path"
+        query="$1"
+        shift
+        ;;
+    esac
+  done
+
+  [ -n "$query" ] || fail "cd requires a name or path"
+  [ -d "$ACTIVE_DIR" ] || fail "active directory not found: $ACTIVE_DIR"
+
+  local target name
+  if target="$(resolve_dir "$query" 2>/dev/null)"; then
+    name="$(basename "$target")"
+  else
+    name="$(active_name_for_query "$query" 2>/dev/null)" || fail "active project not found: $query"
+    target="$(resolve_dir "$ACTIVE_DIR/$name")" || fail "active link is broken: $ACTIVE_DIR/$name"
+  fi
+
+  is_safe_name "$name" || fail "unsafe active name: $name"
+
+  if [ "$mode" = "dry-run" ]; then
+    printf 'would-cd-project\t%s\t%s\n' "$name" "$target"
+  else
+    printf 'cd-project\t%s\t%s\n' "$name" "$target"
+  fi
 }
 
 cmd_anchor() {
@@ -2627,6 +2706,10 @@ main() {
     add)
       shift
       cmd_add "$@"
+      ;;
+    cd)
+      shift
+      cmd_cd "$@"
       ;;
     go)
       shift

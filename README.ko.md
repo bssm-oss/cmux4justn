@@ -13,6 +13,7 @@ cmux 사용자가 프로젝트 추가, active 목록 확인, workspace title 동
 - plain Bash script 기반 한 줄 macOS 설치
 - `~/.c4j/active` symlink 기반 active project registry
 - `c4j go <name-or-path>`로 빠른 프로젝트 이동
+- `c4j cd <name-or-path>`로 조용한 현재 shell 디렉터리 이동
 - `@active/` 같은 configurable title prefix로 cmux workspace sync
 - `c4j anchor`를 통한 pinned cmux anchor workspace 관리
 - 현재 repo용 git worktree 생성
@@ -45,6 +46,9 @@ c4j doctor
 c4j go cmux4justn
 c4j go ~/Workspaces/repos/bssm-oss/main/justn-hyeok/cmux4justn
 
+# 현재 shell 디렉터리만 옮깁니다.
+c4j cd cmux4justn
+
 # 프로젝트를 active registry에 추가하고 cmux와 동기화합니다.
 c4j add ~/Workspaces/repos/bssm-oss/main/justn-hyeok/cmux4justn
 
@@ -74,6 +78,7 @@ c4j sync --direction both --apply
 
 # 특정 명령어 도움말만 봅니다.
 c4j help go
+c4j help cd
 c4j help wt move
 c4j help agent
 ```
@@ -108,6 +113,18 @@ c4j go .
 c4j go ~/Workspaces/repos/bssm-oss/main/justn-hyeok/cmux4justn
 c4j go --dry-run cmux4justn
 c4j go --no-cmux cmux4justn
+```
+
+### `c4j cd [--dry-run|--apply] <name-or-path>`
+
+active 프로젝트 이름이나 디렉터리 경로로 현재 shell 디렉터리만 옮깁니다. cmux는 건드리지 않고, 새 active symlink도 만들지 않습니다.
+
+일반적인 `cd` helper처럼 `scripts/install.sh --rc`로 설치된 shell wrapper가 필요합니다. wrapper 없이 실행 파일만 직접 호출하면 부모 shell의 cwd를 바꿀 수 없어서 script용 target row만 출력합니다.
+
+```bash
+c4j cd cmux4justn
+c4j cd .
+c4j cd --dry-run codeagora
 ```
 
 ### `c4j anchor [--dry-run|--apply] [--name <title>] [--cwd <path>]`

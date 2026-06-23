@@ -13,9 +13,16 @@ _c4j__complete_dirs() {
 _c4j__complete_words() {
   local cur="${1:-}"
   shift
-  local word
 
   COMPREPLY=()
+  _c4j__append_words "$cur" "$@"
+}
+
+_c4j__append_words() {
+  local cur="${1:-}"
+  shift
+  local word
+
   for word in "$@"; do
     case "$word" in
       "$cur"*) COMPREPLY+=("$word") ;;
@@ -23,9 +30,45 @@ _c4j__complete_words() {
   done
 }
 
+_c4j__active_dir() {
+  if [ -n "${C4J_ACTIVE_DIR:-}" ]; then
+    printf '%s\n' "$C4J_ACTIVE_DIR"
+    return 0
+  fi
+  if [ -n "${CMUX4JUSTN_ACTIVE_DIR:-}" ]; then
+    printf '%s\n' "$CMUX4JUSTN_ACTIVE_DIR"
+    return 0
+  fi
+
+  local config_file="${C4J_CONFIG:-${CMUX4JUSTN_CONFIG:-${HOME:-}/.c4j/config}}"
+  if [ -f "$config_file" ]; then
+    awk -F '=' '$1 == "active_dir" { print substr($0, length("active_dir") + 2); found = 1 } END { exit found ? 0 : 1 }' "$config_file" 2>/dev/null && return 0
+  fi
+
+  printf '%s\n' "${HOME:-}/.c4j/active"
+}
+
+_c4j__append_active_projects() {
+  local cur="${1:-}"
+  local active_dir link name
+
+  active_dir="$(_c4j__active_dir 2>/dev/null || true)"
+  [ -d "$active_dir" ] || return 0
+
+  shopt -s nullglob
+  for link in "$active_dir"/*; do
+    [ -L "$link" ] || continue
+    name="$(basename "$link")"
+    case "$name" in
+      "$cur"*) COMPREPLY+=("$name") ;;
+    esac
+  done
+  shopt -u nullglob
+}
+
 _c4j__complete_help_topics() {
   local cur="${1:-}"
-  _c4j__complete_words "$cur" add go anchor delete remove rm setup sync list config doctor update worktree wt version agent scripts automation ax
+  _c4j__complete_words "$cur" add cd go anchor delete remove rm setup sync list config doctor update worktree wt version agent scripts automation ax
 }
 
 _c4j_complete() {
@@ -48,6 +91,9 @@ _c4j_complete() {
     case "$command" in
       add)
         _c4j__complete_words "$cur" --dry-run --apply -h --help
+        ;;
+      cd)
+        _c4j__complete_words "$cur" --dry-run --apply --active-dir -h --help
         ;;
       go)
         _c4j__complete_words "$cur" --dry-run --apply --no-cmux --active-dir --cmux --name-prefix -h --help
@@ -109,7 +155,7 @@ _c4j_complete() {
         COMPREPLY=()
         ;;
       *)
-        _c4j__complete_words "$cur" add go anchor delete update setup sync list config doctor version help remove rm -h --help
+        _c4j__complete_words "$cur" add cd go anchor delete update setup sync list config doctor version help remove rm -h --help
         ;;
     esac
     return 0
@@ -118,6 +164,18 @@ _c4j_complete() {
   case "$command" in
     add)
       _c4j__complete_dirs "$cur"
+      ;;
+    cd)
+      case "$prev" in
+        --active-dir)
+          _c4j__complete_dirs "$cur"
+          ;;
+        *)
+          _c4j__complete_dirs "$cur"
+          _c4j__append_active_projects "$cur"
+          _c4j__append_words "$cur" --dry-run --apply --active-dir
+          ;;
+      esac
       ;;
     go)
       case "$prev" in
@@ -129,7 +187,8 @@ _c4j_complete() {
           ;;
         *)
           _c4j__complete_dirs "$cur"
-          _c4j__complete_words "$cur" --dry-run --apply --no-cmux --active-dir --cmux --name-prefix
+          _c4j__append_active_projects "$cur"
+          _c4j__append_words "$cur" --dry-run --apply --no-cmux --active-dir --cmux --name-prefix
           ;;
       esac
       ;;
@@ -269,7 +328,7 @@ _c4j_complete() {
       COMPREPLY=()
       ;;
     *)
-      _c4j__complete_words "$cur" add go anchor delete update worktree wt pane make-pane setup sync list config doctor version help remove rm
+      _c4j__complete_words "$cur" add cd go anchor delete update worktree wt pane make-pane setup sync list config doctor version help remove rm
       ;;
   esac
 }
