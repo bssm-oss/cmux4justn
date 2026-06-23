@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.13.14 - 2026-06-23
+
+### Added
+
+- Added `lib/c4j-cmux-active.bash` for cmux inventory, workspace lookup, active-name resolution, and prefix helpers.
+
+### Changed
+
+- Routed cmux/active helper calls through the extracted library when available while keeping standalone CLI fallback behavior.
+
 ## v0.13.13 - 2026-06-23
 
 ### Added

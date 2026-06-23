@@ -24,6 +24,11 @@ if [ -f "$C4J_OUTPUT_LIB_FILE" ]; then
   # shellcheck disable=SC1090,SC1091
   source "$C4J_OUTPUT_LIB_FILE"
 fi
+C4J_CMUX_ACTIVE_LIB_FILE="$C4J_SCRIPT_DIR/../lib/c4j-cmux-active.bash"
+if [ -f "$C4J_CMUX_ACTIVE_LIB_FILE" ]; then
+  # shellcheck disable=SC1090,SC1091
+  source "$C4J_CMUX_ACTIVE_LIB_FILE"
+fi
 : "${C4J_ACTION_CD_PROJECT:=cd-project}"
 : "${C4J_ACTION_GO_PROJECT:=go-project}"
 : "${C4J_ACTION_CREATE_WORKTREE:=create-worktree}"
@@ -465,6 +470,7 @@ git_branch_exists() {
   git -C "$repo_root" show-ref --verify --quiet "refs/heads/$branch"
 }
 
+if ! declare -F is_safe_name >/dev/null 2>&1; then
 is_safe_name() {
   local name="$1"
   [ -n "$name" ] || return 1
@@ -475,7 +481,9 @@ is_safe_name() {
   esac
   return 0
 }
+fi
 
+if ! declare -F find_cmux >/dev/null 2>&1; then
 find_cmux() {
   if [ -n "$CMUX_BIN" ]; then
     printf '%s\n' "$CMUX_BIN"
@@ -487,12 +495,16 @@ find_cmux() {
     printf '%s\n' "cmux"
   fi
 }
+fi
 
+if ! declare -F cmux_available >/dev/null 2>&1; then
 cmux_available() {
   local cmux_bin="$1"
   command -v "$cmux_bin" >/dev/null 2>&1 || [ -x "$cmux_bin" ]
 }
+fi
 
+if ! declare -F has_direction >/dev/null 2>&1; then
 has_direction() {
   local direction="$1"
   local requested="$2"
@@ -505,7 +517,9 @@ has_direction() {
       ;;
   esac
 }
+fi
 
+if ! declare -F load_cmux_inventory >/dev/null 2>&1; then
 load_cmux_inventory() {
   local cmux_bin="$1"
   local output_file="$2"
@@ -563,7 +577,9 @@ PY
 
   return 1
 }
+fi
 
+if ! declare -F cmux_workspace_directory >/dev/null 2>&1; then
 cmux_workspace_directory() {
   local cmux_bin="$1"
 
@@ -616,6 +632,7 @@ PY
   rm -f "$inventory_file"
   return "$status"
 }
+fi
 
 worktree_repo_root_for_path() {
   local path="$1"
@@ -965,23 +982,29 @@ worktree_move_destination_path() {
   printf '%s/%s\n' "$worktree_base" "$(slugify_name "$destination")"
 }
 
+if ! declare -F workspace_title_exists >/dev/null 2>&1; then
 workspace_title_exists() {
   local inventory_file="$1"
   local title="$2"
   awk -F '\t' -v title="$title" '$1 == title { found = 1 } END { exit found ? 0 : 1 }' "$inventory_file"
 }
+fi
 
+if ! declare -F workspace_ref_for_title >/dev/null 2>&1; then
 workspace_ref_for_title() {
   local inventory_file="$1"
   local title="$2"
   awk -F '\t' -v title="$title" '$1 == title { print $3; found = 1; exit } END { exit found ? 0 : 1 }' "$inventory_file"
 }
+fi
 
+if ! declare -F workspace_cwd_for_title >/dev/null 2>&1; then
 workspace_cwd_for_title() {
   local inventory_file="$1"
   local title="$2"
   awk -F '\t' -v title="$title" '$1 == title { print $2; found = 1; exit } END { exit found ? 0 : 1 }' "$inventory_file"
 }
+fi
 
 if ! declare -F print_apply_hint >/dev/null 2>&1; then
 print_apply_hint() {
@@ -1260,6 +1283,7 @@ cmd_add() {
   cmd_sync --direction both "--$mode"
 }
 
+if ! declare -F active_name_for_query >/dev/null 2>&1; then
 active_name_for_query() {
   local query="$1"
   local query_lower matches_file
@@ -1300,6 +1324,7 @@ active_name_for_query() {
   fi
   return 1
 }
+fi
 
 cmd_go() {
   local mode="apply"
@@ -1621,6 +1646,7 @@ cmd_anchor() {
   fi
 }
 
+if ! declare -F active_name_from_delete_arg >/dev/null 2>&1; then
 active_name_from_delete_arg() {
   local arg="$1"
   local target
@@ -1642,6 +1668,7 @@ active_name_from_delete_arg() {
       ;;
   esac
 }
+fi
 
 cmd_delete() {
   local mode="apply"
