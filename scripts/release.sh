@@ -114,9 +114,24 @@ release_notes_from_changelog() {
 run_local_checks() {
   (
     cd "$ROOT"
-    bash -n bin/c4j bin/cmux4justn install.sh scripts/install.sh scripts/launchd.sh scripts/release.sh test/cmux4justn.test.sh completions/c4j.bash
-    shellcheck -x bin/c4j bin/cmux4justn install.sh scripts/install.sh scripts/launchd.sh scripts/release.sh test/cmux4justn.test.sh completions/c4j.bash
-    bash test/cmux4justn.test.sh
+    local check_files=(
+      bin/c4j
+      bin/cmux4justn
+      install.sh
+      scripts/install.sh
+      scripts/launchd.sh
+      scripts/release.sh
+      completions/c4j.bash
+    )
+    local test_file
+    while IFS= read -r test_file; do
+      check_files+=("$test_file")
+    done < <(find test -type f \( -name '*.sh' -o -name '*.bash' \) | sort)
+    bash -n "${check_files[@]}"
+    shellcheck -x "${check_files[@]}"
+    for test_file in test/*.test.sh; do
+      bash "$test_file"
+    done
     git diff --check
     run_zsh_smoke
   )

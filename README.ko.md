@@ -410,14 +410,18 @@ scripts/launchd.sh uninstall --apply --load
 로컬 테스트:
 
 ```bash
-bash -n bin/c4j bin/cmux4justn install.sh scripts/install.sh scripts/launchd.sh scripts/release.sh test/cmux4justn.test.sh completions/c4j.bash
-bash test/cmux4justn.test.sh
+check_files=(bin/c4j bin/cmux4justn install.sh scripts/install.sh scripts/launchd.sh scripts/release.sh completions/c4j.bash)
+while IFS= read -r test_file; do check_files+=("$test_file"); done < <(find test -type f \( -name '*.sh' -o -name '*.bash' \) | sort)
+bash -n "${check_files[@]}"
+for test_file in test/*.test.sh; do bash "$test_file"; done
 ```
 
 `shellcheck`가 있으면 함께 실행합니다.
 
 ```bash
-shellcheck -x bin/c4j bin/cmux4justn install.sh scripts/install.sh scripts/launchd.sh scripts/release.sh test/cmux4justn.test.sh completions/c4j.bash
+check_files=(bin/c4j bin/cmux4justn install.sh scripts/install.sh scripts/launchd.sh scripts/release.sh completions/c4j.bash)
+while IFS= read -r test_file; do check_files+=("$test_file"); done < <(find test -type f \( -name '*.sh' -o -name '*.bash' \) | sort)
+shellcheck -x "${check_files[@]}"
 ```
 
 CI는 push와 pull request에서 이 검사를 실행합니다.

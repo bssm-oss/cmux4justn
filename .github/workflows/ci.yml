@@ -19,20 +19,28 @@ jobs:
 
       - name: Bash syntax check
         run: |
-          bash -n bin/c4j
-          bash -n bin/cmux4justn
-          bash -n install.sh
-          bash -n scripts/install.sh
-          bash -n scripts/launchd.sh
-          bash -n scripts/release.sh
-          bash -n test/cmux4justn.test.sh
-          bash -n completions/c4j.bash
+          check_files=(
+            bin/c4j
+            bin/cmux4justn
+            install.sh
+            scripts/install.sh
+            scripts/launchd.sh
+            scripts/release.sh
+            completions/c4j.bash
+          )
+          while IFS= read -r test_file; do
+            check_files+=("$test_file")
+          done < <(find test -type f \( -name '*.sh' -o -name '*.bash' \) | sort)
+          bash -n "${check_files[@]}"
 
       - name: Whitespace check
         run: git diff --check
 
       - name: Run test suite
-        run: bash test/cmux4justn.test.sh
+        run: |
+          for test_file in test/*.test.sh; do
+            bash "$test_file"
+          done
 
       - name: Install ShellCheck
         run: |
@@ -55,7 +63,19 @@ jobs:
 
       - name: ShellCheck
         run: |
-          shellcheck -x bin/c4j bin/cmux4justn install.sh scripts/install.sh scripts/launchd.sh scripts/release.sh test/cmux4justn.test.sh completions/c4j.bash
+          check_files=(
+            bin/c4j
+            bin/cmux4justn
+            install.sh
+            scripts/install.sh
+            scripts/launchd.sh
+            scripts/release.sh
+            completions/c4j.bash
+          )
+          while IFS= read -r test_file; do
+            check_files+=("$test_file")
+          done < <(find test -type f \( -name '*.sh' -o -name '*.bash' \) | sort)
+          shellcheck -x "${check_files[@]}"
 
       - name: Launchd plist lint
         if: runner.os == 'macOS'

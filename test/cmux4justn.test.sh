@@ -1,44 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-CLI="$ROOT/bin/c4j"
-TMPDIR="$(mktemp -d)"
-trap 'rm -rf "$TMPDIR"' EXIT
-export HOME="$TMPDIR/home"
-unset C4J_CONFIG CMUX4JUSTN_CONFIG
-CURRENT_VERSION="$(tr -d '[:space:]' < "$ROOT/VERSION")"
-
-fail() {
-  printf 'FAIL: %s\n' "$*" >&2
-  exit 1
-}
-
-assert_contains() {
-  local haystack="$1"
-  local needle="$2"
-  if ! printf '%s\n' "$haystack" | grep -F -- "$needle" >/dev/null; then
-    fail "expected output to contain: $needle
---- actual output ---
-$haystack
---- end ---"
-  fi
-}
-
-assert_not_contains() {
-  local haystack="$1"
-  local needle="$2"
-  if printf '%s\n' "$haystack" | grep -F -- "$needle" >/dev/null; then
-    fail "expected output not to contain: $needle"
-  fi
-}
-
-sed_inplace() {
-  local pattern="$1"
-  local file="$2"
-  sed -i.bak "$pattern" "$file"
-  rm -f "$file.bak"
-}
+# shellcheck source=test/lib/common.bash
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/lib/common.bash"
 
 output="$($CLI)"
 assert_contains "$output" "c4j v$CURRENT_VERSION"

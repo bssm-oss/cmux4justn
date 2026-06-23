@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.13.10 - 2026-06-23
+
+### Added
+
+- Added shared test helpers under `test/lib/`.
+- Added a separate help/go/cd smoke test while keeping the full suite for parity.
+
+### Changed
+
+- Updated CI and release checks to syntax-check, ShellCheck, and run all `test/*.test.sh` files.
+
 ## v0.13.9 - 2026-06-23
 
 ### Added
