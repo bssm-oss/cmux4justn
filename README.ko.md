@@ -172,6 +172,8 @@ c4j update --ref v0.13.6
 c4j update --repo-url <url> --ref <ref> --allow-unsafe-source
 ```
 
+dry-run 출력에는 현재 CLI 버전, target ref, resolved target commit, local source checkout이 이미 최신인지 여부가 포함됩니다.
+
 ### `c4j worktree [--dry-run|--apply] [--repo <path>] [--name <name>]`
 
 현재 repo용 git worktree를 `~/Workspaces/worktrees` 아래에 만듭니다. canonical repo 경로는 `~/Workspaces/repos` 구조를 그대로 따라갑니다.

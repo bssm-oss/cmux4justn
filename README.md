@@ -173,6 +173,8 @@ c4j update --ref v0.13.6
 c4j update --repo-url <url> --ref <ref> --allow-unsafe-source
 ```
 
+Dry-run output includes the current CLI version, target ref, resolved target commit, and whether the local source checkout is already current.
+
 ### `c4j worktree [--dry-run|--apply] [--repo <path>] [--name <name>]`
 
 Creates a git worktree for the current repo under `~/Workspaces/worktrees`, mirroring the canonical repo path under `~/Workspaces/repos`.

@@ -741,6 +741,7 @@ sed_inplace 's/^[0-9][0-9.]*$/9.9.9/' "$UPDATE_SOURCE/VERSION"
 git -C "$UPDATE_SOURCE" add VERSION bin/cmux4justn
 git -C "$UPDATE_SOURCE" commit -m "bump test version" >/dev/null
 git -C "$UPDATE_SOURCE" tag v9.9.9
+UPDATE_TARGET_COMMIT="$(git -C "$UPDATE_SOURCE" rev-parse HEAD)"
 git clone --bare "$UPDATE_SOURCE" "$UPDATE_REMOTE" >/dev/null
 if output="$(C4J_REPO_URL="file://$UPDATE_REMOTE" C4J_BIN_DIR="$UPDATE_BIN_DIR" "$CLI" update --dry-run --ref v9.9.9 --install-dir "$UPDATE_INSTALL_DIR" 2>&1)"; then
   fail "update custom repo should require --allow-unsafe-source"
@@ -752,12 +753,18 @@ fi
 assert_contains "$output" "unsafe source requires --allow-unsafe-source"
 
 output="$(C4J_REPO_URL="file://$UPDATE_REMOTE" C4J_BIN_DIR="$UPDATE_BIN_DIR" "$CLI" update --allow-unsafe-source --dry-run --ref v9.9.9 --install-dir "$UPDATE_INSTALL_DIR")"
+assert_contains "$output" "current-version	$CURRENT_VERSION"
+assert_contains "$output" "target-ref	v9.9.9"
+assert_contains "$output" "target-commit	$UPDATE_TARGET_COMMIT"
+assert_contains "$output" "already-current	false"
 assert_contains "$output" "would-update-source	$UPDATE_INSTALL_DIR	v9.9.9"
 assert_contains "$output" "would-install-bin	$UPDATE_BIN_DIR/c4j"
 [ ! -e "$UPDATE_INSTALL_DIR" ] || fail "update dry-run should not create install checkout"
 output="$(C4J_REPO_URL="file://$UPDATE_REMOTE" C4J_BIN_DIR="$UPDATE_BIN_DIR" "$CLI" update --allow-unsafe-source --ref v9.9.9 --install-dir "$UPDATE_INSTALL_DIR")"
 assert_contains "$output" "update-cli	v9.9.9	$UPDATE_INSTALL_DIR"
 [ "$("$UPDATE_BIN_DIR/c4j" version)" = "9.9.9" ] || fail "update should install the tagged version"
+output="$(C4J_REPO_URL="file://$UPDATE_REMOTE" C4J_BIN_DIR="$UPDATE_BIN_DIR" "$CLI" update --allow-unsafe-source --dry-run --ref v9.9.9 --install-dir "$UPDATE_INSTALL_DIR")"
+assert_contains "$output" "already-current	true"
 printf 'local\n' > "$UPDATE_INSTALL_DIR/local.txt"
 if output="$(C4J_REPO_URL="file://$UPDATE_REMOTE" C4J_BIN_DIR="$UPDATE_BIN_DIR" "$CLI" update --allow-unsafe-source --ref v9.9.9 --install-dir "$UPDATE_INSTALL_DIR" 2>&1)"; then
   fail "update should reject dirty install checkout"

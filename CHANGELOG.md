@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.13.7 - 2026-06-23
+
+### Changed
+
+- Added update dry-run observability: current version, target ref, target commit, and already-current status.
+
 ## v0.13.6 - 2026-06-23
 
 ### Changed
