@@ -822,6 +822,9 @@ update_source_checkout() {
   local ref="$3"
 
   if [ -d "$install_dir/.git" ]; then
+    if [ -n "$(git -C "$install_dir" status --porcelain 2>/dev/null)" ]; then
+      fail "install checkout has local changes: $install_dir (commit, stash, or remove them before updating)"
+    fi
     git -C "$install_dir" fetch -q --depth 1 "$repo_url" "$ref"
     git -C "$install_dir" -c advice.detachedHead=false checkout -q -f FETCH_HEAD
   else

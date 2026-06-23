@@ -690,11 +690,23 @@ git clone "$ROOT" "$BOOTSTRAP_REPO" >/dev/null
 git -C "$BOOTSTRAP_REPO" checkout -B main >/dev/null
 cp "$ROOT/install.sh" "$TMPDIR/bootstrap-install.sh"
 chmod +x "$TMPDIR/bootstrap-install.sh"
+output="$(HOME="$BOOTSTRAP_HOME" C4J_REPO_URL="file://$BOOTSTRAP_REPO" C4J_REF="main" C4J_INSTALL_DIR="$BOOTSTRAP_INSTALL_DIR" C4J_ACTIVE_DIR="$BOOTSTRAP_ACTIVE" bash "$TMPDIR/bootstrap-install.sh" --dry-run --no-rc)"
+assert_contains "$output" "would-download-source	file://$BOOTSTRAP_REPO	$BOOTSTRAP_INSTALL_DIR"
+assert_contains "$output" "would-run-installer	$BOOTSTRAP_INSTALL_DIR/scripts/install.sh	--dry-run --no-rc"
+[ ! -e "$BOOTSTRAP_INSTALL_DIR" ] || fail "bootstrap dry-run should not create install checkout"
+
 output="$(HOME="$BOOTSTRAP_HOME" C4J_REPO_URL="file://$BOOTSTRAP_REPO" C4J_REF="main" C4J_INSTALL_DIR="$BOOTSTRAP_INSTALL_DIR" C4J_ACTIVE_DIR="$BOOTSTRAP_ACTIVE" bash "$TMPDIR/bootstrap-install.sh" --no-rc)"
 assert_contains "$output" "download-source	file://$BOOTSTRAP_REPO	$BOOTSTRAP_INSTALL_DIR"
 assert_contains "$output" "installed-bin	$BOOTSTRAP_HOME/.local/bin/c4j"
 assert_contains "$output" "active-dir"
 [ -x "$BOOTSTRAP_HOME/.local/bin/c4j" ] || fail "bootstrap install should create c4j executable"
+
+printf 'local\n' > "$BOOTSTRAP_INSTALL_DIR/local.txt"
+if output="$(HOME="$BOOTSTRAP_HOME" C4J_REPO_URL="file://$BOOTSTRAP_REPO" C4J_REF="main" C4J_INSTALL_DIR="$BOOTSTRAP_INSTALL_DIR" C4J_ACTIVE_DIR="$BOOTSTRAP_ACTIVE" bash "$TMPDIR/bootstrap-install.sh" --no-rc 2>&1)"; then
+  fail "bootstrap update should reject dirty install checkout"
+fi
+assert_contains "$output" "install checkout has local changes"
+rm -f "$BOOTSTRAP_INSTALL_DIR/local.txt"
 
 STDIN_BOOTSTRAP_HOME="$TMPDIR/stdin-bootstrap-home"
 STDIN_BOOTSTRAP_INSTALL_DIR="$TMPDIR/stdin-bootstrap-source"
@@ -728,9 +740,16 @@ git clone --bare "$UPDATE_SOURCE" "$UPDATE_REMOTE" >/dev/null
 output="$(C4J_REPO_URL="file://$UPDATE_REMOTE" C4J_BIN_DIR="$UPDATE_BIN_DIR" "$CLI" update --dry-run --ref v9.9.9 --install-dir "$UPDATE_INSTALL_DIR")"
 assert_contains "$output" "would-update-source	$UPDATE_INSTALL_DIR	v9.9.9"
 assert_contains "$output" "would-install-bin	$UPDATE_BIN_DIR/c4j"
+[ ! -e "$UPDATE_INSTALL_DIR" ] || fail "update dry-run should not create install checkout"
 output="$(C4J_REPO_URL="file://$UPDATE_REMOTE" C4J_BIN_DIR="$UPDATE_BIN_DIR" "$CLI" update --ref v9.9.9 --install-dir "$UPDATE_INSTALL_DIR")"
 assert_contains "$output" "update-cli	v9.9.9	$UPDATE_INSTALL_DIR"
 [ "$("$UPDATE_BIN_DIR/c4j" version)" = "9.9.9" ] || fail "update should install the tagged version"
+printf 'local\n' > "$UPDATE_INSTALL_DIR/local.txt"
+if output="$(C4J_REPO_URL="file://$UPDATE_REMOTE" C4J_BIN_DIR="$UPDATE_BIN_DIR" "$CLI" update --ref v9.9.9 --install-dir "$UPDATE_INSTALL_DIR" 2>&1)"; then
+  fail "update should reject dirty install checkout"
+fi
+assert_contains "$output" "install checkout has local changes"
+rm -f "$UPDATE_INSTALL_DIR/local.txt"
 
 git clone "$ROOT" "$UPDATE_ALT_SOURCE" >/dev/null
 git -C "$UPDATE_ALT_SOURCE" config user.name "Test User"

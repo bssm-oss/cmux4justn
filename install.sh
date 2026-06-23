@@ -5,11 +5,18 @@ REPO_URL="${C4J_REPO_URL:-https://github.com/bssm-oss/cmux4justn.git}"
 BOOTSTRAP_REF="v0.13.4"
 REF="${C4J_REF:-$BOOTSTRAP_REF}"
 INSTALL_DIR="${C4J_INSTALL_DIR:-$HOME/.local/share/c4j}"
+DRY_RUN=0
 
 fail() {
   printf 'error: %s\n' "$*" >&2
   exit 1
 }
+
+for arg in "$@"; do
+  if [ "$arg" = "--dry-run" ]; then
+    DRY_RUN=1
+  fi
+done
 
 script_dir=""
 if [ -n "${BASH_SOURCE[0]-}" ]; then
@@ -28,10 +35,23 @@ if [ -e "$INSTALL_DIR" ] && [ ! -d "$INSTALL_DIR/.git" ]; then
 fi
 
 if [ -d "$INSTALL_DIR/.git" ]; then
+  if [ "$DRY_RUN" -eq 1 ]; then
+    printf 'would-update-source\t%s\t%s\n' "$INSTALL_DIR" "$REF"
+    printf 'would-run-installer\t%s\t%s\n' "$INSTALL_DIR/scripts/install.sh" "$*"
+    exit 0
+  fi
+  if [ -n "$(git -C "$INSTALL_DIR" status --porcelain 2>/dev/null)" ]; then
+    fail "install checkout has local changes: $INSTALL_DIR (commit, stash, or remove them before updating)"
+  fi
   printf 'update-source\t%s\t%s\n' "$INSTALL_DIR" "$REF"
   git -C "$INSTALL_DIR" fetch -q --depth 1 origin "$REF"
   git -C "$INSTALL_DIR" -c advice.detachedHead=false checkout -q -f FETCH_HEAD
 else
+  if [ "$DRY_RUN" -eq 1 ]; then
+    printf 'would-download-source\t%s\t%s\n' "$REPO_URL" "$INSTALL_DIR"
+    printf 'would-run-installer\t%s\t%s\n' "$INSTALL_DIR/scripts/install.sh" "$*"
+    exit 0
+  fi
   printf 'download-source\t%s\t%s\n' "$REPO_URL" "$INSTALL_DIR"
   mkdir -p "$(dirname "$INSTALL_DIR")"
   git init -q "$INSTALL_DIR"

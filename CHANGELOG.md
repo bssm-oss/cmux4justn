@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.13.5 - 2026-06-23
+
+### Fixed
+
+- Made bootstrap `install.sh --dry-run` avoid fetch, checkout, directory creation, and installer execution.
+- Made bootstrap/update refuse dirty install source checkouts with a recovery-oriented error.
+
 ## v0.13.4 - 2026-06-23
 
 ### Changed
