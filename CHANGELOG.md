@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.13.4 - 2026-06-23
+
+### Changed
+
+- Made CI require ShellCheck instead of skipping it when unavailable.
+- Added `completions/c4j.bash` to CI syntax and ShellCheck coverage.
+- Added CI `git diff --check`, macOS launchd plist linting, and fresh zsh wrapper smoke coverage.
+
 ## v0.13.3 - 2026-06-23
 
 ### Added

@@ -24,15 +24,78 @@ jobs:
           bash -n install.sh
           bash -n scripts/install.sh
           bash -n scripts/launchd.sh
+          bash -n scripts/release.sh
           bash -n test/cmux4justn.test.sh
+          bash -n completions/c4j.bash
+
+      - name: Whitespace check
+        run: git diff --check
 
       - name: Run test suite
         run: bash test/cmux4justn.test.sh
 
-      - name: Shellcheck (if available)
+      - name: Install ShellCheck
         run: |
           if command -v shellcheck >/dev/null 2>&1; then
-            shellcheck bin/c4j bin/cmux4justn install.sh scripts/install.sh scripts/launchd.sh test/cmux4justn.test.sh
-          else
-            echo "shellcheck not installed; skipping"
+            exit 0
           fi
+          case "$RUNNER_OS" in
+            Linux)
+              sudo apt-get update
+              sudo apt-get install -y shellcheck
+              ;;
+            macOS)
+              brew install shellcheck
+              ;;
+            *)
+              echo "unsupported runner for ShellCheck install: $RUNNER_OS" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: ShellCheck
+        run: |
+          shellcheck -x bin/c4j bin/cmux4justn install.sh scripts/install.sh scripts/launchd.sh scripts/release.sh test/cmux4justn.test.sh completions/c4j.bash
+
+      - name: Launchd plist lint
+        if: runner.os == 'macOS'
+        run: |
+          scripts/launchd.sh print > /tmp/c4j-sync.plist
+          plutil -lint /tmp/c4j-sync.plist
+
+      - name: Fresh zsh wrapper smoke
+        run: |
+          if ! command -v zsh >/dev/null 2>&1; then
+            case "$RUNNER_OS" in
+              Linux)
+                sudo apt-get update
+                sudo apt-get install -y zsh
+                ;;
+              macOS)
+                brew install zsh
+                ;;
+              *)
+                echo "unsupported runner for zsh install: $RUNNER_OS" >&2
+                exit 1
+                ;;
+            esac
+          fi
+
+          tmpdir="$(mktemp -d)"
+          trap 'rm -rf "$tmpdir"' EXIT
+          install_rc="$tmpdir/zshrc"
+          install_bin="$tmpdir/bin"
+          install_home="$tmpdir/home"
+          active="$tmpdir/active"
+          project="$tmpdir/project"
+          stderr="$tmpdir/zsh.err"
+          mkdir -p "$install_home" "$active" "$project"
+
+          HOME="$install_home" C4J_BIN_DIR="$install_bin" C4J_ACTIVE_DIR="$active" C4J_SHELL_RC="$install_rc" bash scripts/install.sh --rc >/dev/null
+          out="$(zsh -f -c "source '$install_rc'; cd '$tmpdir'; C4J_ACTIVE_DIR='$active' C4J_CMUX_BIN='$tmpdir/no-cmux' c4j go --no-cmux '$project' >/dev/null; pwd -P" 2>"$stderr")"
+          if [ -s "$stderr" ]; then
+            cat "$stderr" >&2
+            exit 1
+          fi
+          expected="$(cd "$project" && pwd -P)"
+          [ "$out" = "$expected" ]
