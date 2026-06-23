@@ -200,6 +200,7 @@ cd "$CMUX_WORKSPACE_ROOT"
 output="$($CLI wt feature-from-cmux --dry-run)"
 assert_contains "$output" "would-create-worktree	feature-from-cmux	$WORKTREE_ROOT_RESOLVED/feature-from-cmux	worktree/feature-from-cmux"
 [ ! -e "$WORKTREE_ROOT_RESOLVED/feature-from-cmux" ] || fail "cmux workspace dry-run should not create worktree"
+[ ! -e "$WORKTREE_ROOT_RESOLVED" ] || fail "cmux workspace dry-run should not create worktree base directory"
 
 output="$($CLI wt list)"
 assert_contains "$output" "WORKTREE"
@@ -277,7 +278,14 @@ assert_contains "$output" "prune-worktree-repo	cmux4justn	$WORKTREE_REPO_RESOLVE
 output="$($CLI wt list)"
 assert_not_contains "$output" "prune-me"
 
-output="$($CLI wt delete api-v2)"
+printf 'dirty\n' > "$WORKTREE_ROOT_RESOLVED/api-v2/dirty.txt"
+if output="$($CLI wt delete api-v2 2>&1)"; then
+  fail "delete should reject dirty worktrees without --force or --discard"
+fi
+assert_contains "$output" "worktree has uncommitted or untracked changes"
+[ -d "$WORKTREE_ROOT_RESOLVED/api-v2" ] || fail "failed delete should leave dirty worktree in place"
+
+output="$($CLI wt delete --discard api-v2)"
 assert_contains "$output" "delete-worktree	api-v2	$WORKTREE_ROOT_RESOLVED/api-v2	worktree/api"
 [ ! -d "$WORKTREE_ROOT_RESOLVED/api-v2" ] || fail "delete should remove the moved worktree"
 
@@ -315,6 +323,10 @@ resolved="$(cd "$ACTIVE/delta" && pwd -P)"
 expected_delta="$(cd "$PROJECTS/delta" && pwd -P)"
 [ "$resolved" = "$expected_delta" ] || fail "delta symlink points to wrong target: $resolved"
 rm -f "$ACTIVE/gamma"
+
+output="$($CLI add)"
+assert_contains "$output" "summary	mode=dry-run	direction=both"
+[ ! -e "$ACTIVE/gamma" ] || fail "plain no-arg add should not create symlink"
 
 output="$($CLI add --dry-run)"
 assert_contains "$output" "summary	mode=dry-run	direction=both"

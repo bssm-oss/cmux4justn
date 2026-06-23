@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.13.2 - 2026-06-23
+
+### Fixed
+
+- Kept `c4j wt --dry-run` from creating the managed worktree base directory.
+- Made `c4j wt delete` refuse dirty or untracked worktrees unless `--force` or `--discard` is passed.
+- Changed no-argument `c4j add` to run a dry-run two-way sync by default; use `c4j add --apply` to change state.
+- Updated install bootstrap references, docs, completion, and regression tests for the safety hotfix.
+
 ## v0.13.1 - 2026-06-23
 
 ### Fixed

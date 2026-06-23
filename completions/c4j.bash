@@ -236,7 +236,7 @@ _c4j_complete() {
               _c4j__complete_dirs "$cur"
               ;;
             *)
-              _c4j__complete_words "$cur" --dry-run --apply --repo --target
+              _c4j__complete_words "$cur" --dry-run --apply --force --discard --repo --target
               ;;
           esac
           ;;
@@ -337,6 +337,8 @@ _c4j_complete() {
 }
 
 if [ -n "${ZSH_VERSION:-}" ] && ! type complete >/dev/null 2>&1; then
+  autoload -Uz compinit 2>/dev/null || true
+  compinit -C 2>/dev/null || true
   autoload -U +X bashcompinit 2>/dev/null || true
   bashcompinit 2>/dev/null || true
 fi

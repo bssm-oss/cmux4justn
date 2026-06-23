@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO_URL="${C4J_REPO_URL:-https://github.com/bssm-oss/cmux4justn.git}"
-BOOTSTRAP_REF="v0.13.1"
+BOOTSTRAP_REF="v0.13.2"
 REF="${C4J_REF:-$BOOTSTRAP_REF}"
 INSTALL_DIR="${C4J_INSTALL_DIR:-$HOME/.local/share/c4j}"
 

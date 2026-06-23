@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="0.13.1"
+VERSION="0.13.2"
 DEFAULT_REPO_URL="https://github.com/bssm-oss/cmux4justn.git"
 DEFAULT_ACTIVE_DIR="${HOME:-/Users/justn}/.c4j/active"
 DEFAULT_ANCHOR_DIR="${HOME:-/Users/justn}/Workspaces"
@@ -63,15 +63,17 @@ command_help() {
 c4j add <folder>...
 
 Add folders to c4j, then sync them to cmux.
-With no folder, this just runs a two-way sync.
+With no folder, this previews a two-way sync.
 
 Try:
   c4j add .
+  c4j add --apply
   c4j add ~/Workspaces/repos/example
   c4j add --dry-run .
 
 Notes:
-  default is --apply
+  folder adds default to --apply
+  no-folder add needs --apply to change anything
   --dry-run previews without changing anything
 USAGE
       ;;
@@ -241,7 +243,7 @@ By default it installs the latest v* release.
 Try:
   c4j update
   c4j update --dry-run
-  c4j update --ref v0.13.1
+  c4j update --ref v0.13.2
 USAGE
       ;;
     worktree|wt|pane|make-pane)
@@ -303,9 +305,11 @@ c4j wt delete [worktree]
 
 Remove a managed worktree.
 If you are inside the worktree, you can omit the name.
+Dirty or untracked worktrees require --force or --discard.
 
 Try:
   c4j wt delete api
+  c4j wt delete --force api
   c4j wt delete --dry-run api
 USAGE
       ;;
@@ -1082,6 +1086,7 @@ cmd_setup() {
 
 cmd_add() {
   local mode="apply"
+  local apply_set=0
   local paths=()
 
   while [ "$#" -gt 0 ]; do
@@ -1092,6 +1097,7 @@ cmd_add() {
         ;;
       --apply)
         mode="apply"
+        apply_set=1
         shift
         ;;
       -h|--help)
@@ -1118,7 +1124,11 @@ cmd_add() {
   [ -d "$ACTIVE_DIR" ] || fail "active directory not found: $ACTIVE_DIR"
 
   if [ "${#paths[@]}" -eq 0 ]; then
-    cmd_sync --direction both "--$mode"
+    if [ "$apply_set" -eq 1 ]; then
+      cmd_sync --direction both --apply
+    else
+      cmd_sync --direction both --dry-run
+    fi
     return
   fi
 
@@ -2189,6 +2199,7 @@ cmd_update() {
 
 cmd_worktree_delete() {
   local mode="apply"
+  local force=0
   local target=""
   local repo_path=""
   local target_set=0
@@ -2201,6 +2212,10 @@ cmd_worktree_delete() {
         ;;
       --apply)
         mode="apply"
+        shift
+        ;;
+      --force|--discard)
+        force=1
         shift
         ;;
       --repo)
@@ -2284,7 +2299,15 @@ cmd_worktree_delete() {
     return 0
   fi
 
-  git -C "$repo_root" worktree remove --force "$worktree_root" >/dev/null 2>&1 || fail "failed to remove worktree: $worktree_root"
+  if [ "$force" -ne 1 ] && [ -n "$(git -C "$worktree_root" status --porcelain 2>/dev/null)" ]; then
+    fail "worktree has uncommitted or untracked changes; rerun with --force or --discard to remove: $worktree_root"
+  fi
+
+  if [ "$force" -eq 1 ]; then
+    git -C "$repo_root" worktree remove --force "$worktree_root" >/dev/null 2>&1 || fail "failed to remove worktree: $worktree_root"
+  else
+    git -C "$repo_root" worktree remove "$worktree_root" >/dev/null 2>&1 || fail "failed to remove worktree: $worktree_root"
+  fi
   printf 'delete-worktree\t%s\t%s\t%s\n' "$worktree_name" "$worktree_root" "$branch"
 }
 
@@ -2519,8 +2542,8 @@ cmd_worktree_create() {
   fi
 
   if [ "$worktree_exists" -eq 0 ]; then
-    mkdir -p "$worktree_base"
     if [ "$mode" = "apply" ]; then
+      mkdir -p "$worktree_base"
       if worktree_branch_in_use "$repo_root" "$branch_name"; then
         fail "worktree branch is already in use: $branch_name"
       fi
