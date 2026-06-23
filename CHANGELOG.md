@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.13.0 - 2026-06-23
+
+### Added
+
+- Added `c4j cd <project-or-folder>` for quiet shell-directory jumps through the installed shell wrapper.
+- Added active project completion support for `c4j cd`.
+
+### Fixed
+
+- Hardened shell rc updates to avoid truncating user rc files when c4j markers are malformed.
+- Hardened launchd label handling and plist writes.
+- Fixed completion gaps for `config unset cmux-bin`, `sync --cmux`, and worktree help aliases.
+- Improved config validation and worktree move argument validation.
+- Made update tests use portable in-place `sed`.
+
 ## v0.12.0 - 2026-06-10
 
 ### Added

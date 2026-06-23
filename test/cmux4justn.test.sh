@@ -40,7 +40,7 @@ sed_inplace() {
 }
 
 output="$($CLI)"
-assert_contains "$output" "c4j v0.12.0"
+assert_contains "$output" "c4j v0.13.0"
 assert_contains "$output" "I want to:"
 assert_contains "$output" "go <project>"
 assert_contains "$output" "wt [name]"
@@ -729,7 +729,7 @@ output="$(C4J_REPO_URL="file://$UPDATE_ALT_REMOTE" C4J_BIN_DIR="$UPDATE_BIN_DIR"
 assert_contains "$output" "update-cli	v8.8.8	$UPDATE_INSTALL_DIR"
 [ "$("$UPDATE_BIN_DIR/c4j" version)" = "8.8.8" ] || fail "update should fetch refs from an overridden repo-url even when install dir exists"
 
-[ "$($CLI version)" = "0.12.0" ] || fail "version mismatch"
-[ "$("$ROOT/bin/cmux4justn" version)" = "0.12.0" ] || fail "legacy version mismatch"
+[ "$($CLI version)" = "0.13.0" ] || fail "version mismatch"
+[ "$("$ROOT/bin/cmux4justn" version)" = "0.13.0" ] || fail "legacy version mismatch"
 
 printf 'PASS cmux4justn tests\n'
