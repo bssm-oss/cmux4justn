@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.13.6 - 2026-06-23
+
+### Changed
+
+- Required `--allow-unsafe-source` for bootstrap/update flows that use custom repo URLs or non-`v*` refs.
+- Kept default install/update on the trusted `v*` tag path.
+
 ## v0.13.5 - 2026-06-23
 
 ### Fixed

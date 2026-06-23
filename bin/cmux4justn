@@ -244,6 +244,7 @@ Try:
   c4j update
   c4j update --dry-run
   c4j update --ref v0.13.5
+  c4j update --repo-url <url> --ref <ref> --allow-unsafe-source
 USAGE
       ;;
     worktree|wt|pane|make-pane)
@@ -833,6 +834,28 @@ update_source_checkout() {
     git -C "$install_dir" fetch -q --depth 1 origin "$ref"
     git -C "$install_dir" -c advice.detachedHead=false checkout -q FETCH_HEAD
   fi
+}
+
+trusted_source_ref() {
+  case "$1" in
+    v[0-9]*)
+      case "$1" in
+        */*|*..*|"") return 1 ;;
+        *) return 0 ;;
+      esac
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+validate_update_source_policy() {
+  local repo_url="$1"
+  local ref="$2"
+  local allow_unsafe_source="$3"
+
+  [ "$allow_unsafe_source" -eq 0 ] || return 0
+  [ "$repo_url" = "$DEFAULT_REPO_URL" ] || fail "unsafe source requires --allow-unsafe-source: repo-url $repo_url"
+  trusted_source_ref "$ref" || fail "unsafe source requires --allow-unsafe-source: ref $ref is not a trusted v* tag"
 }
 
 worktree_base_path_for_root() {
@@ -2139,6 +2162,7 @@ cmd_update() {
   local repo_url="${C4J_REPO_URL:-$DEFAULT_REPO_URL}"
   local install_dir="${C4J_INSTALL_DIR:-$HOME/.local/share/c4j}"
   local ref="${C4J_UPDATE_REF:-${C4J_REF:-}}"
+  local allow_unsafe_source=0
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -2165,6 +2189,10 @@ cmd_update() {
         install_dir="$2"
         shift 2
         ;;
+      --allow-unsafe-source)
+        allow_unsafe_source=1
+        shift
+        ;;
       -h|--help)
         command_help update
         exit 0
@@ -2179,8 +2207,12 @@ cmd_update() {
   done
 
   if [ -z "$ref" ]; then
+    if [ "$repo_url" != "$DEFAULT_REPO_URL" ] && [ "$allow_unsafe_source" -ne 1 ]; then
+      fail "unsafe source requires --allow-unsafe-source: repo-url $repo_url"
+    fi
     ref="$(update_latest_release_ref "$repo_url")" || fail "cannot determine latest release ref from: $repo_url"
   fi
+  validate_update_source_policy "$repo_url" "$ref" "$allow_unsafe_source"
 
   if [ -e "$install_dir" ] && [ ! -d "$install_dir/.git" ]; then
     fail "install dir exists and is not a git clone: $install_dir"

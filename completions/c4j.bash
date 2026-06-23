@@ -105,7 +105,7 @@ _c4j_complete() {
         _c4j__complete_words "$cur" --dry-run --apply --keep-cmux -h --help
         ;;
       update)
-        _c4j__complete_words "$cur" --dry-run --apply --ref --repo-url --install-dir -h --help
+        _c4j__complete_words "$cur" --dry-run --apply --ref --repo-url --install-dir --allow-unsafe-source -h --help
         ;;
       worktree|wt|pane|make-pane)
         case "$subcommand" in
@@ -208,7 +208,7 @@ _c4j_complete() {
           _c4j__complete_dirs "$cur"
           ;;
         *)
-          _c4j__complete_words "$cur" --dry-run --apply --ref --repo-url --install-dir
+          _c4j__complete_words "$cur" --dry-run --apply --ref --repo-url --install-dir --allow-unsafe-source
           ;;
       esac
       ;;

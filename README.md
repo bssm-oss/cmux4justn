@@ -159,17 +159,18 @@ Aliases:
 - `remove`
 - `rm`
 
-### `c4j update [--dry-run|--apply] [--ref <ref>] [--repo-url <url>] [--install-dir <path>]`
+### `c4j update [--dry-run|--apply] [--ref <ref>] [--repo-url <url>] [--install-dir <path>] [--allow-unsafe-source]`
 
 Updates the installed `c4j` binary by fetching the latest tagged release from the source repository and reinstalling from that checkout.
 
 By default it looks for the latest `v*` tag in `https://github.com/bssm-oss/cmux4justn.git` and reinstalls from `~/.local/share/c4j`.
-Use `--ref` to pin a specific tag or branch, `--repo-url` to point at another git remote, and `--install-dir` to override the local source checkout path.
+Use `--ref` to pin a specific trusted `v*` tag and `--install-dir` to override the local source checkout path. Custom `--repo-url` values and non-`v*` refs require `--allow-unsafe-source`.
 
 ```bash
 c4j update
 c4j update --dry-run
 c4j update --ref v0.13.5
+c4j update --repo-url <url> --ref <ref> --allow-unsafe-source
 ```
 
 ### `c4j worktree [--dry-run|--apply] [--repo <path>] [--name <name>]`
@@ -292,7 +293,7 @@ Prints the CLI version.
 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.5/install.sh | C4J_REF=v0.13.5 bash
 
 # Install from main instead of the release pinned by the bootstrap script.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash -s -- --allow-unsafe-source
 
 # Download source somewhere else.
 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.5/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash

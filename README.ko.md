@@ -159,16 +159,17 @@ alias:
 - `remove`
 - `rm`
 
-### `c4j update [--dry-run|--apply] [--ref <ref>] [--repo-url <url>] [--install-dir <path>]`
+### `c4j update [--dry-run|--apply] [--ref <ref>] [--repo-url <url>] [--install-dir <path>] [--allow-unsafe-source]`
 
 `c4j` 자체를 최신 태그로 다시 설치합니다. 기본적으로 `https://github.com/bssm-oss/cmux4justn.git`의 `v*` 태그 중 가장 최신을 찾아서 `~/.local/share/c4j`에서 다시 설치합니다.
 
-`--ref`로 특정 태그나 브랜치를 고정할 수 있고, `--repo-url`로 다른 git 원격을 쓸 수 있으며, `--install-dir`로 로컬 소스 checkout 경로를 바꿀 수 있습니다.
+`--ref`로 신뢰하는 `v*` 태그를 고정할 수 있고, `--install-dir`로 로컬 소스 checkout 경로를 바꿀 수 있습니다. 다른 `--repo-url`이나 `v*`가 아닌 ref는 `--allow-unsafe-source`가 필요합니다.
 
 ```bash
 c4j update
 c4j update --dry-run
 c4j update --ref v0.13.5
+c4j update --repo-url <url> --ref <ref> --allow-unsafe-source
 ```
 
 ### `c4j worktree [--dry-run|--apply] [--repo <path>] [--name <name>]`
@@ -291,7 +292,7 @@ CLI 버전을 출력합니다.
 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.5/install.sh | C4J_REF=v0.13.5 bash
 
 # bootstrap script에 고정된 릴리즈 대신 main에서 설치합니다.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash -s -- --allow-unsafe-source
 
 # source 다운로드 위치를 바꿉니다.
 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.5/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
