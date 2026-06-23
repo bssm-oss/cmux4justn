@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.13.11 - 2026-06-23
+
+### Added
+
+- Added separate workflow tests for worktrees, installer wrappers, bootstrap/update, and launchd.
+
+### Changed
+
+- Kept the full legacy suite as parity coverage while exposing workflow failures through narrower test files.
+
 ## v0.13.10 - 2026-06-23
 
 ### Added

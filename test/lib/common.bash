@@ -78,3 +78,16 @@ esac
 FAKE
   chmod +x "$cmux_bin"
 }
+
+make_test_git_repo() {
+  local repo="$1"
+  local message="${2:-init}"
+  mkdir -p "$repo"
+  git -C "$repo" init >/dev/null
+  git -C "$repo" symbolic-ref HEAD refs/heads/main
+  git -C "$repo" config user.name "Test User"
+  git -C "$repo" config user.email "test@example.com"
+  printf 'hello\n' > "$repo/README.md"
+  git -C "$repo" add README.md
+  git -C "$repo" commit -m "$message" >/dev/null
+}
