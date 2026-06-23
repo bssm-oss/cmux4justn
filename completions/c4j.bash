@@ -1,5 +1,29 @@
 #!/usr/bin/env bash
 
+_c4j__source_contract() {
+  local completion_dir contract_file
+  completion_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+  contract_file="$completion_dir/../lib/c4j-contract.bash"
+  if [ -f "$contract_file" ]; then
+    # shellcheck disable=SC1090,SC1091
+    source "$contract_file"
+  fi
+}
+
+_c4j__source_contract
+if ! declare -p C4J_CONTRACT_HELP_TOPICS >/dev/null 2>&1; then
+  C4J_CONTRACT_HELP_TOPICS=(add cd go anchor delete remove rm repair reconcile setup sync list config doctor update worktree wt version agent scripts automation ax)
+fi
+if ! declare -p C4J_CONTRACT_TOP_COMMANDS >/dev/null 2>&1; then
+  C4J_CONTRACT_TOP_COMMANDS=(add cd go anchor delete update repair reconcile setup sync list config doctor version help remove rm)
+fi
+if ! declare -p C4J_CONTRACT_COMMANDS >/dev/null 2>&1; then
+  C4J_CONTRACT_COMMANDS=("${C4J_CONTRACT_TOP_COMMANDS[@]}" worktree wt pane make-pane)
+fi
+if ! declare -p C4J_CONTRACT_WORKTREE_SUBCOMMANDS >/dev/null 2>&1; then
+  C4J_CONTRACT_WORKTREE_SUBCOMMANDS=(list ls prune move delete remove rm update refresh up)
+fi
+
 _c4j__complete_dirs() {
   local cur="${1:-}"
   local entry
@@ -68,7 +92,7 @@ _c4j__append_active_projects() {
 
 _c4j__complete_help_topics() {
   local cur="${1:-}"
-  _c4j__complete_words "$cur" add cd go anchor delete remove rm repair reconcile setup sync list config doctor update worktree wt version agent scripts automation ax
+  _c4j__complete_words "$cur" "${C4J_CONTRACT_HELP_TOPICS[@]}"
 }
 
 _c4j_complete() {
@@ -125,7 +149,7 @@ _c4j_complete() {
             _c4j__complete_words "$cur" --dry-run --apply --repo --target -h --help
             ;;
           *)
-            _c4j__complete_words "$cur" list ls delete remove rm update refresh up --dry-run --apply --repo --name -h --help
+            _c4j__complete_words "$cur" "${C4J_CONTRACT_WORKTREE_SUBCOMMANDS[@]}" --dry-run --apply --repo --name -h --help
             ;;
         esac
         ;;
@@ -158,7 +182,7 @@ _c4j_complete() {
         COMPREPLY=()
         ;;
       *)
-        _c4j__complete_words "$cur" add cd go anchor delete update repair reconcile setup sync list config doctor version help remove rm -h --help
+        _c4j__complete_words "$cur" "${C4J_CONTRACT_TOP_COMMANDS[@]}" -h --help
         ;;
     esac
     return 0
@@ -262,7 +286,7 @@ _c4j_complete() {
               _c4j__complete_dirs "$cur"
               ;;
             *)
-          _c4j__complete_words "$cur" list ls prune move delete remove rm update refresh up --dry-run --apply --repo --name
+          _c4j__complete_words "$cur" "${C4J_CONTRACT_WORKTREE_SUBCOMMANDS[@]}" --dry-run --apply --repo --name
             ;;
         esac
       ;;
@@ -307,7 +331,7 @@ _c4j_complete() {
     help)
       case "$subcommand" in
         worktree|wt)
-          _c4j__complete_words "$cur" list ls prune move delete remove rm update refresh up
+          _c4j__complete_words "$cur" "${C4J_CONTRACT_WORKTREE_SUBCOMMANDS[@]}"
           ;;
         "")
           _c4j__complete_help_topics "$cur"
@@ -347,7 +371,7 @@ _c4j_complete() {
       COMPREPLY=()
       ;;
     *)
-      _c4j__complete_words "$cur" add cd go anchor delete update repair reconcile worktree wt pane make-pane setup sync list config doctor version help remove rm
+      _c4j__complete_words "$cur" "${C4J_CONTRACT_COMMANDS[@]}"
       ;;
   esac
 }

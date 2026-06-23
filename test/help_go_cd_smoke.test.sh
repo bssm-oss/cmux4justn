@@ -36,20 +36,20 @@ export C4J_CMUX_BIN="$FAKE_CMUX"
 
 output="$($CLI go --dry-run alpha)"
 assert_contains "$output" "would-select-workspace	@active/alpha	workspace:1"
-assert_contains "$output" "would-go-project	alpha	$PROJECTS_RESOLVED/alpha"
+assert_contains "$output" "would-$C4J_ACTION_GO_PROJECT	alpha	$PROJECTS_RESOLVED/alpha"
 [ ! -e "$CALLS" ] || fail "go dry-run should not call cmux"
 
 output="$($CLI go alpha)"
 assert_contains "$output" "select-workspace	@active/alpha	workspace:1"
-assert_contains "$output" "go-project	alpha	$PROJECTS_RESOLVED/alpha"
+assert_contains "$output" "$C4J_ACTION_GO_PROJECT	alpha	$PROJECTS_RESOLVED/alpha"
 assert_contains "$(cat "$CALLS")" "select-workspace --workspace workspace:1"
 
 rm -f "$CALLS"
 output="$($CLI cd alpha)"
-assert_contains "$output" "cd-project	alpha	$PROJECTS_RESOLVED/alpha"
+assert_contains "$output" "$C4J_ACTION_CD_PROJECT	alpha	$PROJECTS_RESOLVED/alpha"
 [ ! -e "$CALLS" ] || fail "cd should not call cmux"
 
 output="$($CLI cd --dry-run beta)"
-assert_contains "$output" "would-cd-project	beta	$PROJECTS_RESOLVED/beta"
+assert_contains "$output" "would-$C4J_ACTION_CD_PROJECT	beta	$PROJECTS_RESOLVED/beta"
 
 printf 'PASS help/go/cd smoke\n'

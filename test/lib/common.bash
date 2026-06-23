@@ -3,6 +3,8 @@
 C4J_TEST_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 ROOT="$C4J_TEST_ROOT"
 CLI="$ROOT/bin/c4j"
+# shellcheck disable=SC1091
+source "$ROOT/lib/c4j-contract.bash"
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT
 export HOME="$TMPDIR/home"

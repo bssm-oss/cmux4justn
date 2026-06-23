@@ -126,6 +126,9 @@ run_local_checks() {
     local test_file
     while IFS= read -r test_file; do
       check_files+=("$test_file")
+    done < <(find lib -type f -name '*.bash' | sort)
+    while IFS= read -r test_file; do
+      check_files+=("$test_file")
     done < <(find test -type f \( -name '*.sh' -o -name '*.bash' \) | sort)
     bash -n "${check_files[@]}"
     shellcheck -x "${check_files[@]}"

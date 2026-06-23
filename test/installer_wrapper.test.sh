@@ -36,7 +36,7 @@ install_output="$(run_install --shell-rc "$INSTALL_RC" --bin-dir "$INSTALL_BIN_D
 assert_contains "$install_output" "installed-bin	$INSTALL_BIN_DIR/c4j"
 assert_contains "$install_output" "installed-rc	$INSTALL_RC"
 assert_contains "$(cat "$INSTALL_RC")" "c4j()"
-assert_contains "$(cat "$INSTALL_RC")" "cd-project"
+assert_contains "$(cat "$INSTALL_RC")" "$C4J_ACTION_CD_PROJECT"
 assert_contains "$(cat "$INSTALL_RC")" "builtin cd --"
 
 WRAPPER_OUT="$TMPDIR/wrapper-out"
@@ -55,7 +55,7 @@ EOF
 HOME="$INSTALL_HOME" C4J_ACTIVE_DIR="$ACTIVE" C4J_CMUX_BIN="$FAKE_CMUX" bash "$WRAPPER_SCRIPT"
 [ "$(cat "$WRAPPER_PWD")" = "$PROJECTS_RESOLVED/alpha" ] || fail "wrapper cd should change the caller shell directory"
 [ ! -s "$WRAPPER_OUT" ] || fail "wrapper cd should be quiet on success"
-assert_contains "$(cat "$WRAPPER_DRY_RUN_OUT")" "would-cd-project	beta	$PROJECTS_RESOLVED/beta"
+assert_contains "$(cat "$WRAPPER_DRY_RUN_OUT")" "would-$C4J_ACTION_CD_PROJECT	beta	$PROJECTS_RESOLVED/beta"
 
 BROKEN_RC="$TMPDIR/broken-zshrc"
 printf '%s\n' "keep-before" "# >>> c4j >>>" "keep-after" > "$BROKEN_RC"

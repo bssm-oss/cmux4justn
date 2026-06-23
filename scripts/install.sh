@@ -17,6 +17,9 @@ MARKER_END="# <<< c4j <<<"
 COMPLETION_MARKER_START="# >>> c4j completion >>>"
 COMPLETION_MARKER_END="# <<< c4j completion <<<"
 
+# shellcheck disable=SC1091
+source "$ROOT/lib/c4j-contract.bash"
+
 usage() {
   cat <<'USAGE'
 Usage: scripts/install.sh [--dry-run] [--bin-dir PATH] [--no-bin] [--active-dir PATH] [--no-active-dir] [--config PATH] [--no-config] [--rc] [--shell-rc PATH] [--no-rc]
@@ -193,7 +196,7 @@ WRAPPER_FUNCTION="c4j() {
   fi
   case \"\${1:-}\" in
     cd)
-      c4j_target_path=\$(printf '%s\n' \"\$c4j_output\" | awk -F '\\t' '\$1 == \"cd-project\" { print \$3; exit }')
+      c4j_target_path=\$(printf '%s\n' \"\$c4j_output\" | awk -F '\\t' '\$1 == \"$C4J_ACTION_CD_PROJECT\" { print \$3; exit }')
       if [ -n \"\$c4j_target_path\" ]; then
         if [ -d \"\$c4j_target_path\" ]; then
           builtin cd -- \"\$c4j_target_path\"
@@ -206,14 +209,14 @@ WRAPPER_FUNCTION="c4j() {
       ;;
     go)
       printf '%s\n' \"\$c4j_output\"
-      c4j_target_path=\$(printf '%s\n' \"\$c4j_output\" | awk -F '\\t' '\$1 == \"go-project\" { print \$3; exit }')
+      c4j_target_path=\$(printf '%s\n' \"\$c4j_output\" | awk -F '\\t' '\$1 == \"$C4J_ACTION_GO_PROJECT\" { print \$3; exit }')
       if [ -n \"\$c4j_target_path\" ] && [ -d \"\$c4j_target_path\" ]; then
         builtin cd -- \"\$c4j_target_path\"
       fi
       ;;
     worktree|wt|pane|make-pane)
       printf '%s\n' \"\$c4j_output\"
-      c4j_target_path=\$(printf '%s\n' \"\$c4j_output\" | awk -F '\\t' '(\$1 == \"create-worktree\" || \$1 == \"reuse-worktree\") { print \$3; exit } \$1 == \"move-worktree\" { print \$4; exit }')
+      c4j_target_path=\$(printf '%s\n' \"\$c4j_output\" | awk -F '\\t' '(\$1 == \"$C4J_ACTION_CREATE_WORKTREE\" || \$1 == \"$C4J_ACTION_REUSE_WORKTREE\") { print \$3; exit } \$1 == \"$C4J_ACTION_MOVE_WORKTREE\" { print \$4; exit }')
       if [ -n \"\$c4j_target_path\" ] && [ -d \"\$c4j_target_path\" ]; then
         builtin cd -- \"\$c4j_target_path\"
       fi
@@ -319,9 +322,9 @@ touch "$SHELL_RC"
 wrapper_present=0
 completion_present=0
 if grep -F "$MARKER_START" "$SHELL_RC" >/dev/null 2>&1 &&
-  grep -F "cd-project" "$SHELL_RC" >/dev/null 2>&1 &&
-  grep -F "go-project" "$SHELL_RC" >/dev/null 2>&1 &&
-  grep -F "move-worktree" "$SHELL_RC" >/dev/null 2>&1; then
+  grep -F "$C4J_ACTION_CD_PROJECT" "$SHELL_RC" >/dev/null 2>&1 &&
+  grep -F "$C4J_ACTION_GO_PROJECT" "$SHELL_RC" >/dev/null 2>&1 &&
+  grep -F "$C4J_ACTION_MOVE_WORKTREE" "$SHELL_RC" >/dev/null 2>&1; then
   wrapper_present=1
 fi
 if grep -F "$COMPLETION_MARKER_START" "$SHELL_RC" >/dev/null 2>&1; then

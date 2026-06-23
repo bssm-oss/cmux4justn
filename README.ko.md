@@ -411,6 +411,7 @@ scripts/launchd.sh uninstall --apply --load
 
 ```bash
 check_files=(bin/c4j bin/cmux4justn install.sh scripts/install.sh scripts/launchd.sh scripts/release.sh completions/c4j.bash)
+while IFS= read -r test_file; do check_files+=("$test_file"); done < <(find lib -type f -name '*.bash' | sort)
 while IFS= read -r test_file; do check_files+=("$test_file"); done < <(find test -type f \( -name '*.sh' -o -name '*.bash' \) | sort)
 bash -n "${check_files[@]}"
 for test_file in test/*.test.sh; do bash "$test_file"; done
@@ -420,6 +421,7 @@ for test_file in test/*.test.sh; do bash "$test_file"; done
 
 ```bash
 check_files=(bin/c4j bin/cmux4justn install.sh scripts/install.sh scripts/launchd.sh scripts/release.sh completions/c4j.bash)
+while IFS= read -r test_file; do check_files+=("$test_file"); done < <(find lib -type f -name '*.bash' | sort)
 while IFS= read -r test_file; do check_files+=("$test_file"); done < <(find test -type f \( -name '*.sh' -o -name '*.bash' \) | sort)
 shellcheck -x "${check_files[@]}"
 ```

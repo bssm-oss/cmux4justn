@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.13.12 - 2026-06-23
+
+### Added
+
+- Added `lib/c4j-contract.bash` for shared command, help topic, worktree subcommand, and action row names.
+
+### Changed
+
+- Updated completion, installer wrapper generation, and tests to consume the shared contract.
+
 ## v0.13.11 - 2026-06-23
 
 ### Added

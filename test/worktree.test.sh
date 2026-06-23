@@ -22,7 +22,7 @@ assert_contains "$output" "would-create-worktree	api	$WORKTREE_ROOT_RESOLVED/api
 [ ! -e "$WORKTREE_ROOT_RESOLVED" ] || fail "worktree dry-run should not create worktree base directory"
 
 output="$($CLI worktree --apply --name api)"
-assert_contains "$output" "create-worktree	api	$WORKTREE_ROOT_RESOLVED/api	worktree/api"
+assert_contains "$output" "$C4J_ACTION_CREATE_WORKTREE	api	$WORKTREE_ROOT_RESOLVED/api	worktree/api"
 [ -d "$WORKTREE_ROOT_RESOLVED/api" ] || fail "worktree apply should create worktree"
 
 output="$($CLI wt list)"
@@ -30,7 +30,7 @@ assert_contains "$output" "cmux4justn"
 assert_contains "$output" "api"
 
 output="$($CLI wt move api api-v2)"
-assert_contains "$output" "move-worktree	api	$WORKTREE_ROOT_RESOLVED/api	$WORKTREE_ROOT_RESOLVED/api-v2	worktree/api"
+assert_contains "$output" "$C4J_ACTION_MOVE_WORKTREE	api	$WORKTREE_ROOT_RESOLVED/api	$WORKTREE_ROOT_RESOLVED/api-v2	worktree/api"
 [ -d "$WORKTREE_ROOT_RESOLVED/api-v2" ] || fail "move should create destination worktree"
 [ ! -d "$WORKTREE_ROOT_RESOLVED/api" ] || fail "move should remove source worktree"
 

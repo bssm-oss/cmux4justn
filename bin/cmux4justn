@@ -8,6 +8,18 @@ DEFAULT_ANCHOR_DIR="${HOME:-/Users/justn}/Workspaces"
 DEFAULT_WORKTREE_DIR="${HOME:-/Users/justn}/Workspaces/worktrees"
 CONFIG_FILE="${C4J_CONFIG:-${CMUX4JUSTN_CONFIG:-${HOME:-/Users/justn}/.c4j/config}}"
 
+C4J_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+C4J_CONTRACT_FILE="$C4J_SCRIPT_DIR/../lib/c4j-contract.bash"
+if [ -f "$C4J_CONTRACT_FILE" ]; then
+  # shellcheck disable=SC1090,SC1091
+  source "$C4J_CONTRACT_FILE"
+fi
+: "${C4J_ACTION_CD_PROJECT:=cd-project}"
+: "${C4J_ACTION_GO_PROJECT:=go-project}"
+: "${C4J_ACTION_CREATE_WORKTREE:=create-worktree}"
+: "${C4J_ACTION_REUSE_WORKTREE:=reuse-worktree}"
+: "${C4J_ACTION_MOVE_WORKTREE:=move-worktree}"
+
 config_get_value() {
   local key="$1"
   [ -f "$CONFIG_FILE" ] || return 1
@@ -215,7 +227,7 @@ Try:
 USAGE
       ;;
     agent|agents|script|scripts|automation|ax)
-      cat <<'USAGE'
+      cat <<USAGE
 c4j help agent
 
 For agents and scripts:
@@ -230,10 +242,10 @@ Prefer plain output when reading lists:
   c4j wt list --plain
 
 Parse action rows by the first tab-separated field:
-  cd-project       <name> <path>
-  go-project       <name> <path>
-  create-worktree  <name> <path> <branch>
-  reuse-worktree   <name> <path>
+  $C4J_ACTION_CD_PROJECT       <name> <path>
+  $C4J_ACTION_GO_PROJECT       <name> <path>
+  $C4J_ACTION_CREATE_WORKTREE  <name> <path> <branch>
+  $C4J_ACTION_REUSE_WORKTREE   <name> <path>
   summary          key=value ...
 
 Conventions:
@@ -1389,7 +1401,7 @@ cmd_go() {
     printf 'would-go-project\t%s\t%s\n' "$name" "$target"
     print_apply_hint go "$query"
   else
-    printf 'go-project\t%s\t%s\n' "$name" "$target"
+    printf '%s\t%s\t%s\n' "$C4J_ACTION_GO_PROJECT" "$name" "$target"
   fi
 
   [ "$added_link" -eq 0 ] || true
@@ -1456,7 +1468,7 @@ cmd_cd() {
   if [ "$mode" = "dry-run" ]; then
     printf 'would-cd-project\t%s\t%s\n' "$name" "$target"
   else
-    printf 'cd-project\t%s\t%s\n' "$name" "$target"
+    printf '%s\t%s\t%s\n' "$C4J_ACTION_CD_PROJECT" "$name" "$target"
   fi
 }
 
@@ -2182,7 +2194,7 @@ cmd_worktree_move() {
   current_parent="$(dirname "$destination_path")"
   mkdir -p "$current_parent"
   git -C "$repo_root" worktree move "$worktree_path" "$destination_path" >/dev/null 2>&1 || fail "failed to move worktree: $worktree_path -> $destination_path"
-  printf 'move-worktree\t%s\t%s\t%s\t%s\n' "$worktree_name" "$worktree_path" "$destination_path" "$branch"
+  printf '%s\t%s\t%s\t%s\t%s\n' "$C4J_ACTION_MOVE_WORKTREE" "$worktree_name" "$worktree_path" "$destination_path" "$branch"
 }
 
 cmd_update() {
@@ -2635,13 +2647,13 @@ cmd_worktree_create() {
       if [ -n "$upstream_ref" ]; then
         git -C "$worktree_path" branch --set-upstream-to="$upstream_ref" "$branch_name" >/dev/null 2>&1 || true
       fi
-      printf 'create-worktree\t%s\t%s\t%s\n' "$final_name" "$worktree_path" "$branch_name"
+      printf '%s\t%s\t%s\t%s\n' "$C4J_ACTION_CREATE_WORKTREE" "$final_name" "$worktree_path" "$branch_name"
     else
       printf 'would-create-worktree\t%s\t%s\t%s\n' "$final_name" "$worktree_path" "$branch_name"
     fi
   else
     if [ "$mode" = "apply" ]; then
-      printf 'reuse-worktree\t%s\t%s\n' "$final_name" "$worktree_path"
+      printf '%s\t%s\t%s\n' "$C4J_ACTION_REUSE_WORKTREE" "$final_name" "$worktree_path"
     else
       printf 'would-reuse-worktree\t%s\t%s\n' "$final_name" "$worktree_path"
     fi

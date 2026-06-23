@@ -30,6 +30,9 @@ jobs:
           )
           while IFS= read -r test_file; do
             check_files+=("$test_file")
+          done < <(find lib -type f -name '*.bash' | sort)
+          while IFS= read -r test_file; do
+            check_files+=("$test_file")
           done < <(find test -type f \( -name '*.sh' -o -name '*.bash' \) | sort)
           bash -n "${check_files[@]}"
 
@@ -72,6 +75,9 @@ jobs:
             scripts/release.sh
             completions/c4j.bash
           )
+          while IFS= read -r test_file; do
+            check_files+=("$test_file")
+          done < <(find lib -type f -name '*.bash' | sort)
           while IFS= read -r test_file; do
             check_files+=("$test_file")
           done < <(find test -type f \( -name '*.sh' -o -name '*.bash' \) | sort)
