@@ -22,7 +22,7 @@ It gives cmux users a small workspace manager for adding projects, listing activ
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.5/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.6/install.sh | bash
 ```
 
 The installer:
@@ -169,7 +169,7 @@ Use `--ref` to pin a specific trusted `v*` tag and `--install-dir` to override t
 ```bash
 c4j update
 c4j update --dry-run
-c4j update --ref v0.13.5
+c4j update --ref v0.13.6
 c4j update --repo-url <url> --ref <ref> --allow-unsafe-source
 ```
 
@@ -290,13 +290,13 @@ Prints the CLI version.
 
 ```bash
 # Install a specific release.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.5/install.sh | C4J_REF=v0.13.5 bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.6/install.sh | C4J_REF=v0.13.6 bash
 
 # Install from main instead of the release pinned by the bootstrap script.
 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash -s -- --allow-unsafe-source
 
 # Download source somewhere else.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.5/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.6/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
 
 # Preview all installer actions.
 scripts/install.sh --dry-run
