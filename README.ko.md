@@ -63,6 +63,9 @@ c4j wt delete feature-api
 # active 프로젝트 목록을 봅니다.
 c4j list
 
+# c4j와 cmux 상태 reconcile을 미리 봅니다.
+c4j repair
+
 # 프로젝트를 active registry에서 제거하고 cmux 워크스페이스도 닫습니다.
 c4j delete cmux4justn
 
@@ -159,6 +162,16 @@ alias:
 
 아래 명령어는 복구, 대량 reconcile, 설정 변경, script 용도에 가깝습니다. 일반적인 daily workflow는 `go`, `cd`, `wt`, `list`, `delete`에서 시작하면 됩니다.
 
+### `c4j repair [--dry-run|--apply]`
+
+active registry와 cmux 사이의 양방향 reconcile을 미리 보거나 적용합니다. `reconcile`은 alias입니다.
+
+```bash
+c4j repair
+c4j repair --apply
+c4j reconcile --dry-run
+```
+
 ### `c4j add [--dry-run|--apply] <path>...`
 
 하나 이상의 디렉터리를 active registry에 symlink로 추가한 뒤 `sync --direction both`를 실행합니다.
@@ -214,7 +227,7 @@ c4j setup --name-prefix @active/
 
 ### `c4j sync [--dry-run|--apply] [--direction active-to-cmux|cmux-to-active|both]`
 
-active registry와 cmux 워크스페이스 목록을 동기화합니다.
+script와 고급 복구용 low-level sync 명령입니다. 일반적인 수동 복구는 `c4j repair`를 쓰면 됩니다.
 
 - `active-to-cmux`: active symlink를 기준으로 없는 cmux 워크스페이스 생성
 - `cmux-to-active`: configured prefix가 붙은 cmux 워크스페이스를 기준으로 없는 active symlink 생성

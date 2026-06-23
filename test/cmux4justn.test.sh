@@ -45,7 +45,7 @@ assert_contains "$output" "c4j v$CURRENT_VERSION"
 assert_contains "$output" "I want to:"
 assert_contains "$output" "go <project>"
 assert_contains "$output" "wt [name]"
-assert_contains "$output" "sync --apply"
+assert_contains "$output" "repair --apply"
 assert_contains "$output" "c4j help agent"
 assert_contains "$output" "Tip: add --dry-run"
 assert_not_contains "$output" "Environment:"
@@ -62,6 +62,10 @@ assert_not_contains "$output" "I want to:"
 
 output="$($CLI help wt list)"
 assert_contains "$output" "c4j wt list"
+
+output="$($CLI help repair)"
+assert_contains "$output" "c4j repair"
+assert_contains "$output" "two-way reconciliation"
 
 output="$($CLI help agent)"
 assert_contains "$output" "For agents and scripts:"
@@ -316,6 +320,9 @@ assert_contains "$output" "would-create-link	@active/delta"
 assert_contains "$output" "skip unsafe-name	@active/bad/name"
 [ ! -e "$ACTIVE/delta" ] || fail "reverse dry-run should not create symlink"
 
+output="$($CLI repair)"
+assert_contains "$output" "summary	mode=dry-run	direction=both"
+
 output="$($CLI sync --direction cmux-to-active --apply)"
 assert_contains "$output" "create-link	@active/delta"
 [ -L "$ACTIVE/delta" ] || fail "reverse apply should create symlink"
@@ -476,6 +483,11 @@ COMP_WORDS=(c4j h)
 COMP_CWORD=1
 _c4j_complete
 assert_contains "${COMPREPLY[*]}" "help"
+COMP_WORDS=(c4j r)
+COMP_CWORD=1
+_c4j_complete
+assert_contains "${COMPREPLY[*]}" "repair"
+assert_contains "${COMPREPLY[*]}" "reconcile"
 COMP_WORDS=(c4j help "")
 COMP_CWORD=2
 _c4j_complete

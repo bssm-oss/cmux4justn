@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.13.9 - 2026-06-23
+
+### Added
+
+- Added `c4j repair` / `c4j reconcile` as a human-oriented two-way c4j/cmux reconciliation surface.
+
+### Changed
+
+- Moved `sync --direction ...` positioning toward script and advanced repair documentation while keeping compatibility.
+
 ## v0.13.8 - 2026-06-23
 
 ### Changed

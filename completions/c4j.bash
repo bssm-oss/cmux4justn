@@ -68,7 +68,7 @@ _c4j__append_active_projects() {
 
 _c4j__complete_help_topics() {
   local cur="${1:-}"
-  _c4j__complete_words "$cur" add cd go anchor delete remove rm setup sync list config doctor update worktree wt version agent scripts automation ax
+  _c4j__complete_words "$cur" add cd go anchor delete remove rm repair reconcile setup sync list config doctor update worktree wt version agent scripts automation ax
 }
 
 _c4j_complete() {
@@ -135,6 +135,9 @@ _c4j_complete() {
       sync)
         _c4j__complete_words "$cur" --dry-run --apply --direction --active-dir --cmux --name-prefix -h --help
         ;;
+      repair|reconcile)
+        _c4j__complete_words "$cur" --dry-run --apply --active-dir --cmux --name-prefix -h --help
+        ;;
       list)
         _c4j__complete_words "$cur" --plain --tsv -h --help
         ;;
@@ -155,7 +158,7 @@ _c4j_complete() {
         COMPREPLY=()
         ;;
       *)
-        _c4j__complete_words "$cur" add cd go anchor delete update setup sync list config doctor version help remove rm -h --help
+        _c4j__complete_words "$cur" add cd go anchor delete update repair reconcile setup sync list config doctor version help remove rm -h --help
         ;;
     esac
     return 0
@@ -327,11 +330,24 @@ _c4j_complete() {
           ;;
       esac
       ;;
+    repair|reconcile)
+      case "$prev" in
+        --name-prefix)
+          COMPREPLY=()
+          ;;
+        --active-dir|--cmux)
+          _c4j__complete_dirs "$cur"
+          ;;
+        *)
+          _c4j__complete_words "$cur" --dry-run --apply --active-dir --cmux --name-prefix
+          ;;
+      esac
+      ;;
     list|doctor|version)
       COMPREPLY=()
       ;;
     *)
-      _c4j__complete_words "$cur" add cd go anchor delete update worktree wt pane make-pane setup sync list config doctor version help remove rm
+      _c4j__complete_words "$cur" add cd go anchor delete update repair reconcile worktree wt pane make-pane setup sync list config doctor version help remove rm
       ;;
   esac
 }

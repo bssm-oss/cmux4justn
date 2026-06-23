@@ -63,6 +63,9 @@ c4j wt delete feature-api
 # List active projects.
 c4j list
 
+# Preview a c4j/cmux reconciliation.
+c4j repair
+
 # Remove a project from the active registry and close its cmux workspace.
 c4j delete cmux4justn
 
@@ -159,6 +162,16 @@ Aliases:
 
 These commands are useful for repair, bulk reconciliation, setup changes, and scripts. Most daily work should start with `go`, `cd`, `wt`, `list`, or `delete`.
 
+### `c4j repair [--dry-run|--apply]`
+
+Previews or applies a two-way reconciliation between the active registry and cmux. `reconcile` is an alias.
+
+```bash
+c4j repair
+c4j repair --apply
+c4j reconcile --dry-run
+```
+
 ### `c4j add [--dry-run|--apply] <path>...`
 
 Adds one or more directories to the active registry as symlinks, then runs `sync --direction both`.
@@ -215,7 +228,7 @@ c4j setup --name-prefix @active/
 
 ### `c4j sync [--dry-run|--apply] [--direction active-to-cmux|cmux-to-active|both]`
 
-Synchronizes the active registry and cmux workspace list.
+Low-level sync command for scripts and advanced repair. For normal manual repair, use `c4j repair`.
 
 - `active-to-cmux`: create missing cmux workspaces from active symlinks
 - `cmux-to-active`: create missing active symlinks from cmux workspaces with the configured prefix
