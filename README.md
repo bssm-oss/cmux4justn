@@ -22,7 +22,7 @@ It gives cmux users a small workspace manager for adding projects, listing activ
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.2/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.3/install.sh | bash
 ```
 
 The installer:
@@ -169,7 +169,7 @@ Use `--ref` to pin a specific tag or branch, `--repo-url` to point at another gi
 ```bash
 c4j update
 c4j update --dry-run
-c4j update --ref v0.13.2
+c4j update --ref v0.13.3
 ```
 
 ### `c4j worktree [--dry-run|--apply] [--repo <path>] [--name <name>]`
@@ -289,13 +289,13 @@ Prints the CLI version.
 
 ```bash
 # Install a specific release.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.2/install.sh | C4J_REF=v0.13.2 bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.3/install.sh | C4J_REF=v0.13.3 bash
 
 # Install from main instead of the release pinned by the bootstrap script.
 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash
 
 # Download source somewhere else.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.2/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.3/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
 
 # Preview all installer actions.
 scripts/install.sh --dry-run
@@ -401,22 +401,30 @@ Test-safe overrides:
 Run the local test suite:
 
 ```bash
-bash -n bin/c4j bin/cmux4justn install.sh scripts/install.sh scripts/launchd.sh test/cmux4justn.test.sh
+bash -n bin/c4j bin/cmux4justn install.sh scripts/install.sh scripts/launchd.sh scripts/release.sh test/cmux4justn.test.sh completions/c4j.bash
 bash test/cmux4justn.test.sh
 ```
 
 Run shellcheck when available:
 
 ```bash
-shellcheck bin/c4j bin/cmux4justn install.sh scripts/install.sh scripts/launchd.sh test/cmux4justn.test.sh
+shellcheck -x bin/c4j bin/cmux4justn install.sh scripts/install.sh scripts/launchd.sh scripts/release.sh test/cmux4justn.test.sh completions/c4j.bash
 ```
 
 CI runs these checks on push and pull request.
 
 ## Release Checklist
 
-1. Update `VERSION` and the version string in `bin/cmux4justn`.
-2. Update `CHANGELOG.md`.
-3. Run syntax checks, tests, shellcheck, and `git diff --check`.
-4. Commit and push `main`.
-5. Tag the release, push the tag, and create a GitHub Release.
+Use the release script from a clean `main` checkout:
+
+```bash
+scripts/release.sh 0.13.4
+```
+
+Preview the sequence without changing files or remotes:
+
+```bash
+scripts/release.sh --dry-run 0.13.4
+```
+
+The script updates version references, runs local checks, commits, pushes `main`, waits for `main` CI, pushes the tag, waits for tag CI, and creates the GitHub Release. It fails before remote mutation when `gh` authentication or GitHub Actions visibility is unavailable.

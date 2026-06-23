@@ -22,7 +22,7 @@ cmux 사용자가 프로젝트 추가, active 목록 확인, workspace title 동
 ## 설치
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.2/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.3/install.sh | bash
 ```
 
 설치 스크립트는 기본적으로 다음 작업을 합니다.
@@ -168,7 +168,7 @@ alias:
 ```bash
 c4j update
 c4j update --dry-run
-c4j update --ref v0.13.2
+c4j update --ref v0.13.3
 ```
 
 ### `c4j worktree [--dry-run|--apply] [--repo <path>] [--name <name>]`
@@ -288,13 +288,13 @@ CLI 버전을 출력합니다.
 
 ```bash
 # 특정 릴리즈를 설치합니다.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.2/install.sh | C4J_REF=v0.13.2 bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.3/install.sh | C4J_REF=v0.13.3 bash
 
 # bootstrap script에 고정된 릴리즈 대신 main에서 설치합니다.
 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash
 
 # source 다운로드 위치를 바꿉니다.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.2/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.13.3/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash
 
 # 설치 작업을 미리 확인합니다.
 scripts/install.sh --dry-run
@@ -400,22 +400,30 @@ scripts/launchd.sh uninstall --apply --load
 로컬 테스트:
 
 ```bash
-bash -n bin/c4j bin/cmux4justn install.sh scripts/install.sh scripts/launchd.sh test/cmux4justn.test.sh
+bash -n bin/c4j bin/cmux4justn install.sh scripts/install.sh scripts/launchd.sh scripts/release.sh test/cmux4justn.test.sh completions/c4j.bash
 bash test/cmux4justn.test.sh
 ```
 
 `shellcheck`가 있으면 함께 실행합니다.
 
 ```bash
-shellcheck bin/c4j bin/cmux4justn install.sh scripts/install.sh scripts/launchd.sh test/cmux4justn.test.sh
+shellcheck -x bin/c4j bin/cmux4justn install.sh scripts/install.sh scripts/launchd.sh scripts/release.sh test/cmux4justn.test.sh completions/c4j.bash
 ```
 
 CI는 push와 pull request에서 이 검사를 실행합니다.
 
 ## 릴리즈 체크리스트
 
-1. `VERSION`과 `bin/cmux4justn`의 version string을 업데이트합니다.
-2. `CHANGELOG.md`를 업데이트합니다.
-3. syntax check, test, shellcheck, `git diff --check`를 실행합니다.
-4. `main`에 commit/push합니다.
-5. release tag를 만들고 push한 뒤 GitHub Release를 생성합니다.
+깨끗한 `main` checkout에서 release script를 실행합니다.
+
+```bash
+scripts/release.sh 0.13.4
+```
+
+파일이나 remote를 바꾸지 않고 순서만 확인하려면 dry-run을 사용합니다.
+
+```bash
+scripts/release.sh --dry-run 0.13.4
+```
+
+이 스크립트는 version reference 갱신, local check, commit, `main` push, `main` CI 대기, tag push, tag CI 대기, GitHub Release 생성을 순서대로 수행합니다. `gh` 인증이나 GitHub Actions 조회가 불가능하면 remote mutation 전에 실패합니다.

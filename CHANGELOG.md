@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.13.3 - 2026-06-23
+
+### Added
+
+- Added `scripts/release.sh` as the canonical patch release path for version refs, local gates, `main` CI, tag CI, and GitHub Release creation.
+- Added a release dry-run regression test so the automation can be exercised without GitHub credentials.
+
+### Fixed
+
+- Made fresh zsh completion sourcing initialize zsh completion before `bashcompinit`, avoiding `compdef` warnings in wrapper smoke tests.
+
 ## v0.13.2 - 2026-06-23
 
 ### Fixed

@@ -745,6 +745,14 @@ output="$(C4J_REPO_URL="file://$UPDATE_ALT_REMOTE" C4J_BIN_DIR="$UPDATE_BIN_DIR"
 assert_contains "$output" "update-cli	v8.8.8	$UPDATE_INSTALL_DIR"
 [ "$("$UPDATE_BIN_DIR/c4j" version)" = "8.8.8" ] || fail "update should fetch refs from an overridden repo-url even when install dir exists"
 
+CURRENT_MAJOR_MINOR="${CURRENT_VERSION%.*}"
+CURRENT_PATCH="${CURRENT_VERSION##*.}"
+NEXT_PATCH_VERSION="$CURRENT_MAJOR_MINOR.$((CURRENT_PATCH + 1))"
+output="$(bash "$ROOT/scripts/release.sh" --dry-run "$NEXT_PATCH_VERSION")"
+assert_contains "$output" "release-dry-run	$CURRENT_VERSION	$NEXT_PATCH_VERSION"
+assert_contains "$output" "would-run-local-checks"
+assert_contains "$output" "would-create-release	v$NEXT_PATCH_VERSION"
+
 [ "$($CLI version)" = "$CURRENT_VERSION" ] || fail "version mismatch"
 [ "$("$ROOT/bin/cmux4justn" version)" = "$CURRENT_VERSION" ] || fail "legacy version mismatch"
 
