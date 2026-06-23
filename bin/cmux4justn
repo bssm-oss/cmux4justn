@@ -29,6 +29,11 @@ if [ -f "$C4J_CMUX_ACTIVE_LIB_FILE" ]; then
   # shellcheck disable=SC1090,SC1091
   source "$C4J_CMUX_ACTIVE_LIB_FILE"
 fi
+C4J_WORKTREE_LIB_FILE="$C4J_SCRIPT_DIR/../lib/c4j-worktree.bash"
+if [ -f "$C4J_WORKTREE_LIB_FILE" ]; then
+  # shellcheck disable=SC1090,SC1091
+  source "$C4J_WORKTREE_LIB_FILE"
+fi
 : "${C4J_ACTION_CD_PROJECT:=cd-project}"
 : "${C4J_ACTION_GO_PROJECT:=go-project}"
 : "${C4J_ACTION_CREATE_WORKTREE:=create-worktree}"
@@ -417,6 +422,7 @@ slugify_name() {
   printf '%s\n' "$value"
 }
 
+if ! declare -F canonical_git_root >/dev/null 2>&1; then
 canonical_git_root() {
   local path="$1"
   local git_dir
@@ -434,7 +440,9 @@ canonical_git_root() {
       ;;
   esac
 }
+fi
 
+if ! declare -F current_git_ref >/dev/null 2>&1; then
 current_git_ref() {
   local path="$1"
   local branch short_sha
@@ -448,27 +456,34 @@ current_git_ref() {
   short_sha="$(git -C "$path" rev-parse --short HEAD 2>/dev/null)" || return 1
   printf 'detached-%s\n' "$short_sha"
 }
+fi
 
+if ! declare -F worktree_registered_at_path >/dev/null 2>&1; then
 worktree_registered_at_path() {
   local repo_root="$1"
   local path="$2"
 
   git -C "$repo_root" worktree list --porcelain | awk -v target="$path" '$1 == "worktree" && $2 == target { found = 1 } END { exit found ? 0 : 1 }'
 }
+fi
 
+if ! declare -F worktree_branch_in_use >/dev/null 2>&1; then
 worktree_branch_in_use() {
   local repo_root="$1"
   local branch="$2"
 
   git -C "$repo_root" worktree list --porcelain | awk -v target="refs/heads/$branch" '$1 == "branch" && $2 == target { found = 1 } END { exit found ? 0 : 1 }'
 }
+fi
 
+if ! declare -F git_branch_exists >/dev/null 2>&1; then
 git_branch_exists() {
   local repo_root="$1"
   local branch="$2"
 
   git -C "$repo_root" show-ref --verify --quiet "refs/heads/$branch"
 }
+fi
 
 if ! declare -F is_safe_name >/dev/null 2>&1; then
 is_safe_name() {
@@ -634,12 +649,15 @@ PY
 }
 fi
 
+if ! declare -F worktree_repo_root_for_path >/dev/null 2>&1; then
 worktree_repo_root_for_path() {
   local path="$1"
 
   git -C "$path" rev-parse --show-toplevel 2>/dev/null || return 1
 }
+fi
 
+if ! declare -F worktree_repo_root_from_cmux >/dev/null 2>&1; then
 worktree_repo_root_from_cmux() {
   local cmux_bin="$1" workspace_dir repo_root
 
@@ -649,7 +667,9 @@ worktree_repo_root_from_cmux() {
   [ -n "$repo_root" ] || return 1
   printf '%s\n' "$repo_root"
 }
+fi
 
+if ! declare -F discover_worktree_repo_roots >/dev/null 2>&1; then
 discover_worktree_repo_roots() {
   local output_file="$1"
   local repos_root="${HOME:-/Users/justn}/Workspaces/repos"
@@ -676,7 +696,9 @@ discover_worktree_repo_roots() {
 
   sort -u "$output_file" -o "$output_file"
 }
+fi
 
+if ! declare -F collect_worktree_rows >/dev/null 2>&1; then
 collect_worktree_rows() {
   local rows_file="$1"
   local scope_repo_root="${2:-}"
@@ -701,7 +723,9 @@ collect_worktree_rows() {
   sort -t "$(printf '\t')" -k1,1 -k2,2 -k3,3 "$rows_file" -o "$rows_file"
   rm -f "$roots_file"
 }
+fi
 
+if ! declare -F append_worktree_rows_for_repo_root >/dev/null 2>&1; then
 append_worktree_rows_for_repo_root() {
   local repo_root="$1"
   local rows_file="$2"
@@ -755,7 +779,9 @@ append_worktree_rows_for_repo_root() {
     printf '%s\t%s\t%s\t%s\t%s\n' "$repo_root" "$repo_name" "$name" "$current_path" "$branch_display" >> "$rows_file"
   fi
 }
+fi
 
+if ! declare -F worktree_render_rows >/dev/null 2>&1; then
 worktree_render_rows() {
   local rows_file="$1"
   local mode="${2:-table}"
@@ -780,7 +806,9 @@ worktree_render_rows() {
   printf "%-${repo_width}s  %-${name_width}s  %-${path_width}s  %s\n" "$(printf '%*s' "$repo_width" '' | tr ' ' '-')" "$(printf '%*s' "$name_width" '' | tr ' ' '-')" "$(printf '%*s' "$path_width" '' | tr ' ' '-')" "$(printf '%*s' "$branch_width" '' | tr ' ' '-')"
   awk -F '\t' -v repo_width="$repo_width" -v name_width="$name_width" -v path_width="$path_width" '{ printf "%-" repo_width "s  %-" name_width "s  %-" path_width "s  %s\n", $2, $3, $4, $5 }' "$rows_file"
 }
+fi
 
+if ! declare -F worktree_find_rows >/dev/null 2>&1; then
 worktree_find_rows() {
   local rows_file="$1"
   local target="$2"
@@ -796,7 +824,9 @@ worktree_find_rows() {
     esac
   done < "$rows_file"
 }
+fi
 
+if ! declare -F worktree_current_path_from_pwd >/dev/null 2>&1; then
 worktree_current_path_from_pwd() {
   local top repo_root
 
@@ -806,7 +836,9 @@ worktree_current_path_from_pwd() {
   [ "$top" != "$repo_root" ] || return 1
   printf '%s\n' "$top"
 }
+fi
 
+if ! declare -F worktree_repo_root_for_context >/dev/null 2>&1; then
 worktree_repo_root_for_context() {
   local repo_path="${1:-}"
   local cmux_bin current_workspace_root current_pwd_root
@@ -827,7 +859,9 @@ worktree_repo_root_for_context() {
   [ -n "$current_pwd_root" ] || return 1
   printf '%s\n' "$current_pwd_root"
 }
+fi
 
+if ! declare -F worktree_update_target_path >/dev/null 2>&1; then
 worktree_update_target_path() {
   local target="${1:-}"
   local resolved=""
@@ -852,6 +886,7 @@ worktree_update_target_path() {
 
   return 1
 }
+fi
 
 update_latest_release_ref() {
   local repo_url="$1"
@@ -936,6 +971,7 @@ validate_update_source_policy() {
   trusted_source_ref "$ref" || fail "unsafe source requires --allow-unsafe-source: ref $ref is not a trusted v* tag"
 }
 
+if ! declare -F worktree_base_path_for_root >/dev/null 2>&1; then
 worktree_base_path_for_root() {
   local canonical_root="$1"
   local repo_slug relative_repo_path repos_root
@@ -952,7 +988,9 @@ worktree_base_path_for_root() {
       ;;
   esac
 }
+fi
 
+if ! declare -F worktree_move_destination_path >/dev/null 2>&1; then
 worktree_move_destination_path() {
   local repo_root="$1"
   local destination="$2"
@@ -981,6 +1019,7 @@ worktree_move_destination_path() {
   worktree_base="$(worktree_base_path_for_root "$canonical_root")" || return 1
   printf '%s/%s\n' "$worktree_base" "$(slugify_name "$destination")"
 }
+fi
 
 if ! declare -F workspace_title_exists >/dev/null 2>&1; then
 workspace_title_exists() {

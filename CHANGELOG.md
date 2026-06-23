@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.13.15 - 2026-06-23
+
+### Added
+
+- Added `lib/c4j-worktree.bash` for worktree scope, target, list, render, and destination helpers.
+
+### Changed
+
+- Routed worktree commands through extracted helper functions when available while preserving standalone CLI fallback behavior.
+
 ## v0.13.14 - 2026-06-23
 
 ### Added
