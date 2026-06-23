@@ -14,17 +14,42 @@ if [ -f "$C4J_CONTRACT_FILE" ]; then
   # shellcheck disable=SC1090,SC1091
   source "$C4J_CONTRACT_FILE"
 fi
+C4J_CONFIG_LIB_FILE="$C4J_SCRIPT_DIR/../lib/c4j-config.bash"
+if [ -f "$C4J_CONFIG_LIB_FILE" ]; then
+  # shellcheck disable=SC1090,SC1091
+  source "$C4J_CONFIG_LIB_FILE"
+fi
+C4J_OUTPUT_LIB_FILE="$C4J_SCRIPT_DIR/../lib/c4j-output.bash"
+if [ -f "$C4J_OUTPUT_LIB_FILE" ]; then
+  # shellcheck disable=SC1090,SC1091
+  source "$C4J_OUTPUT_LIB_FILE"
+fi
 : "${C4J_ACTION_CD_PROJECT:=cd-project}"
 : "${C4J_ACTION_GO_PROJECT:=go-project}"
 : "${C4J_ACTION_CREATE_WORKTREE:=create-worktree}"
 : "${C4J_ACTION_REUSE_WORKTREE:=reuse-worktree}"
 : "${C4J_ACTION_MOVE_WORKTREE:=move-worktree}"
 
+if ! declare -F tsv_row >/dev/null 2>&1; then
+  tsv_row() {
+    local first="$1"
+    shift
+    printf '%s' "$first"
+    local field
+    for field in "$@"; do
+      printf '\t%s' "$field"
+    done
+    printf '\n'
+  }
+fi
+
+if ! declare -F config_get_value >/dev/null 2>&1; then
 config_get_value() {
   local key="$1"
   [ -f "$CONFIG_FILE" ] || return 1
   awk -F '=' -v key="$key" '$1 == key { print substr($0, length(key) + 2); found = 1 } END { exit found ? 0 : 1 }' "$CONFIG_FILE"
 }
+fi
 
 CONFIG_ACTIVE_DIR="$(config_get_value active_dir 2>/dev/null || true)"
 CONFIG_CMUX_BIN="$(config_get_value cmux_bin 2>/dev/null || true)"
@@ -958,6 +983,7 @@ workspace_cwd_for_title() {
   awk -F '\t' -v title="$title" '$1 == title { print $2; found = 1; exit } END { exit found ? 0 : 1 }' "$inventory_file"
 }
 
+if ! declare -F print_apply_hint >/dev/null 2>&1; then
 print_apply_hint() {
   local command="$1"
   shift
@@ -967,7 +993,9 @@ print_apply_hint() {
   fi
   printf ' --apply\n'
 }
+fi
 
+if ! declare -F config_key_for_field >/dev/null 2>&1; then
 config_key_for_field() {
   case "$1" in
     active-dir|workspace-dir|workspace-file)
@@ -984,7 +1012,9 @@ config_key_for_field() {
       ;;
   esac
 }
+fi
 
+if ! declare -F config_value_for_field >/dev/null 2>&1; then
 config_value_for_field() {
   local field="$1"
   local value="$2"
@@ -1011,7 +1041,9 @@ config_value_for_field() {
       ;;
   esac
 }
+fi
 
+if ! declare -F config_write_value >/dev/null 2>&1; then
 config_write_value() {
   local key="$1"
   local value="$2"
@@ -1025,7 +1057,9 @@ config_write_value() {
   printf '%s=%s\n' "$key" "$value" >> "$tmp_file"
   mv "$tmp_file" "$CONFIG_FILE"
 }
+fi
 
+if ! declare -F config_unset_value >/dev/null 2>&1; then
 config_unset_value() {
   local key="$1"
   local tmp_file
@@ -1034,16 +1068,17 @@ config_unset_value() {
   awk -F '=' -v key="$key" '$1 != key { print }' "$CONFIG_FILE" > "$tmp_file"
   mv "$tmp_file" "$CONFIG_FILE"
 }
+fi
 
 cmd_config() {
   local subcommand="${1:-}"
   case "$subcommand" in
     get|"")
       [ "$#" -le 1 ] || fail "config get takes no arguments"
-      printf 'config_file\t%s\n' "$CONFIG_FILE"
-      printf 'active_dir\t%s\n' "$ACTIVE_DIR"
-      printf 'cmux_bin\t%s\n' "$(find_cmux)"
-      printf 'name_prefix\t%s\n' "$NAME_PREFIX"
+      tsv_row config_file "$CONFIG_FILE"
+      tsv_row active_dir "$ACTIVE_DIR"
+      tsv_row cmux_bin "$(find_cmux)"
+      tsv_row name_prefix "$NAME_PREFIX"
       ;;
     set)
       [ "$#" -eq 3 ] || fail "config set requires a field and value"
@@ -1053,7 +1088,7 @@ cmd_config() {
       key="$(config_key_for_field "$field")" || fail "unknown config field: $field"
       resolved="$(config_value_for_field "$field" "$value")" || fail "invalid value for $field: $value"
       config_write_value "$key" "$resolved"
-      printf 'set\t%s\t%s\n' "$key" "$resolved"
+      tsv_row set "$key" "$resolved"
       ;;
     unset)
       [ "$#" -eq 2 ] || fail "config unset requires a field"
@@ -1061,7 +1096,7 @@ cmd_config() {
       local key
       key="$(config_key_for_field "$field")" || fail "unknown config field: $field"
       config_unset_value "$key"
-      printf 'unset\t%s\n' "$key"
+      tsv_row unset "$key"
       ;;
     path)
       [ "$#" -eq 1 ] || fail "config path takes no arguments"
@@ -1122,9 +1157,9 @@ cmd_setup() {
   fi
 
   if [ "$mode" = "dry-run" ]; then
-    printf 'would-set\tname_prefix\t%s\n' "$resolved_name_prefix"
+    tsv_row would-set name_prefix "$resolved_name_prefix"
     if [ -n "$active_dir" ]; then
-      printf 'would-set\tactive_dir\t%s\n' "$resolved_active_dir"
+      tsv_row would-set active_dir "$resolved_active_dir"
     fi
     local hint_args=()
     if [ "$active_dir_set" -eq 1 ]; then
@@ -1138,11 +1173,11 @@ cmd_setup() {
   fi
 
   config_write_value name_prefix "$resolved_name_prefix"
-  printf 'set\tname_prefix\t%s\n' "$resolved_name_prefix"
+  tsv_row set name_prefix "$resolved_name_prefix"
 
   if [ -n "$active_dir" ]; then
     config_write_value active_dir "$resolved_active_dir"
-    printf 'set\tactive_dir\t%s\n' "$resolved_active_dir"
+    tsv_row set active_dir "$resolved_active_dir"
   fi
 }
 
@@ -2828,12 +2863,16 @@ cmd_list() {
 cmd_doctor() {
   local cmux_bin
   cmux_bin="$(find_cmux)"
-  printf 'config_file\t%s\t' "$CONFIG_FILE"
-  [ -f "$CONFIG_FILE" ] && printf 'ok\n' || printf 'missing\n'
-  printf 'active_dir\t%s\t' "$ACTIVE_DIR"
-  [ -d "$ACTIVE_DIR" ] && printf 'ok\n' || printf 'missing\n'
-  printf 'cmux_bin\t%s\t' "$cmux_bin"
-  cmux_available "$cmux_bin" && printf 'ok\n' || printf 'missing\n'
+  local config_status active_status cmux_status
+  config_status="missing"
+  active_status="missing"
+  cmux_status="missing"
+  [ -f "$CONFIG_FILE" ] && config_status="ok"
+  [ -d "$ACTIVE_DIR" ] && active_status="ok"
+  cmux_available "$cmux_bin" && cmux_status="ok"
+  tsv_row config_file "$CONFIG_FILE" "$config_status"
+  tsv_row active_dir "$ACTIVE_DIR" "$active_status"
+  tsv_row cmux_bin "$cmux_bin" "$cmux_status"
 }
 
 main() {

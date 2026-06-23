@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.13.13 - 2026-06-23
+
+### Added
+
+- Added `lib/c4j-config.bash` and `lib/c4j-output.bash` for config and TSV helper extraction.
+
+### Changed
+
+- Routed config/setup/doctor TSV output through the shared output helper while preserving public output.
+
 ## v0.13.12 - 2026-06-23
 
 ### Added
