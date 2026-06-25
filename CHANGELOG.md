@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.13.16 - 2026-06-25
+
+### Changed
+
+- Prepared v0.13.16 release.
+
 ## v0.13.15 - 2026-06-23
 
 ### Added
