@@ -4,43 +4,6 @@ set -euo pipefail
 # shellcheck source=test/lib/common.bash
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/lib/common.bash"
 
-output="$($CLI)"
-assert_contains "$output" "c4j v$CURRENT_VERSION"
-assert_contains "$output" "I want to:"
-assert_contains "$output" "go <project>"
-assert_contains "$output" "wt [name]"
-assert_contains "$output" "repair --apply"
-assert_contains "$output" "c4j help agent"
-assert_contains "$output" "Tip: add --dry-run"
-assert_not_contains "$output" "Environment:"
-assert_not_contains "$output" "C4J_ACTIVE_DIR"
-
-output="$($CLI help go)"
-assert_contains "$output" "c4j go <project-or-folder>"
-assert_contains "$output" "Open a project."
-assert_not_contains "$output" "Environment:"
-
-output="$($CLI go --help)"
-assert_contains "$output" "c4j go <project-or-folder>"
-assert_not_contains "$output" "I want to:"
-
-output="$($CLI help wt list)"
-assert_contains "$output" "c4j wt list"
-
-output="$($CLI help repair)"
-assert_contains "$output" "c4j repair"
-assert_contains "$output" "two-way reconciliation"
-
-output="$($CLI help agent)"
-assert_contains "$output" "For agents and scripts:"
-assert_contains "$output" "c4j list --plain"
-assert_contains "$output" "Parse action rows by the first tab-separated field"
-assert_contains "$output" "output is plain text"
-
-output="$($CLI doctor --help)"
-assert_contains "$output" "c4j doctor"
-assert_contains "$output" "Run this when c4j feels weird."
-
 ACTIVE="$TMPDIR/@active"
 PROJECTS="$TMPDIR/projects"
 mkdir -p "$ACTIVE" "$PROJECTS/alpha" "$PROJECTS/beta" "$PROJECTS/gamma" "$PROJECTS/delta" "$PROJECTS/legacy" "$PROJECTS/unsafe" "$PROJECTS/conflict-other"

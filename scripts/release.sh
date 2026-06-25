@@ -274,7 +274,7 @@ if git -C "$ROOT" diff --quiet; then
   fail "no release changes to commit"
 fi
 
-git add CHANGELOG.md README.md README.ko.md VERSION bin/cmux4justn install.sh scripts/release.sh completions/c4j.bash test/cmux4justn.test.sh
+git add CHANGELOG.md README.md README.ko.md VERSION bin/cmux4justn install.sh scripts/release.sh completions/c4j.bash lib test
 git commit -m "Release $tag"
 commit_sha="$(git rev-parse HEAD)"
 
