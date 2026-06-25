@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="0.13.17"
+VERSION="0.13.18"
 DEFAULT_REPO_URL="https://github.com/bssm-oss/cmux4justn.git"
 DEFAULT_ACTIVE_DIR="${HOME:-/Users/justn}/.c4j/active"
 DEFAULT_ANCHOR_DIR="${HOME:-/Users/justn}/Workspaces"
@@ -308,7 +308,7 @@ By default it installs the latest v* release.
 Try:
   c4j update
   c4j update --dry-run
-  c4j update --ref v0.13.17
+  c4j update --ref v0.13.18
   c4j update --repo-url <url> --ref <ref> --allow-unsafe-source
 USAGE
       ;;
