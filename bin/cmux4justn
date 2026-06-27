@@ -279,13 +279,15 @@ Prefer plain output when reading lists:
 Parse action rows by the first tab-separated field:
   $C4J_ACTION_CD_PROJECT       <name> <path>
   $C4J_ACTION_GO_PROJECT       <name> <path>
-  $C4J_ACTION_CREATE_WORKTREE  <name> <path> <branch>
-  $C4J_ACTION_REUSE_WORKTREE   <name> <path>
+  $C4J_ACTION_CREATE_WORKTREE  <name> <path> <branch>  (stderr in normal wt)
+  $C4J_ACTION_REUSE_WORKTREE   <name> <path>           (stderr in normal wt)
   summary          key=value ...
 
 Conventions:
   --help and -h print help to stdout
   --version and version print only the version
+  c4j wt normal stdout is the final worktree path only
+  c4j wt --dry-run stdout is TSV action rows and never changes cwd
   output is plain text: no colors, icons, spinners, or box drawing
   commands are non-interactive; use --apply or --dry-run explicitly
 USAGE
@@ -323,7 +325,16 @@ Try:
   c4j wt
   c4j wt feature-api
   c4j wt --dry-run
+  c4j wt feature-api --no-cmux
+  c4j wt feature-api --workspace-name @active/cmux4justn-api
+  c4j wt feature-api --command "git status --short"
   c4j wt list
+
+Options:
+  --no-cmux              Skip cmux workspace integration.
+  --workspace-name NAME  Override the derived cmux workspace name.
+  --command COMMAND      Run a command inside the worktree after setup.
+  --dry-run              Print TSV action rows without changes.
 
 More:
   c4j help wt list
@@ -1042,6 +1053,28 @@ workspace_cwd_for_title() {
   local inventory_file="$1"
   local title="$2"
   awk -F '\t' -v title="$title" '$1 == title { print $2; found = 1; exit } END { exit found ? 0 : 1 }' "$inventory_file"
+}
+fi
+
+if ! declare -F workspace_row_for_cwd >/dev/null 2>&1; then
+workspace_row_for_cwd() {
+  local inventory_file="$1"
+  local target="$2"
+  local title cwd ref resolved_cwd resolved_target
+
+  resolved_target="$(resolve_dir "$target" 2>/dev/null || true)"
+  [ -n "$resolved_target" ] || resolved_target="$target"
+
+  while IFS=$'\t' read -r title cwd ref; do
+    [ -n "$title" ] || continue
+    resolved_cwd="$(resolve_dir "$cwd" 2>/dev/null || true)"
+    [ -n "$resolved_cwd" ] || resolved_cwd="$cwd"
+    if [ "$resolved_cwd" = "$resolved_target" ]; then
+      printf '%s\t%s\t%s\n' "$title" "$cwd" "$ref"
+      return 0
+    fi
+  done < "$inventory_file"
+  return 1
 }
 fi
 
@@ -2612,10 +2645,15 @@ cmd_worktree_update() {
 
 cmd_worktree_create() {
   local mode="apply"
+  local cmux_enabled=1
+  local cmux_bin
   local repo_path=""
   local repo_set=0
   local requested_name=""
   local name_set=0
+  local workspace_name_override=""
+  local command_to_run=""
+  cmux_bin="$(find_cmux)"
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -2633,10 +2671,34 @@ cmd_worktree_create() {
         repo_set=1
         shift 2
         ;;
+      --no-cmux)
+        cmux_enabled=0
+        shift
+        ;;
+      --cmux)
+        [ "$#" -ge 2 ] || fail "--cmux requires a path"
+        cmux_bin="$2"
+        shift 2
+        ;;
+      --name-prefix)
+        [ "$#" -ge 2 ] || fail "--name-prefix requires text"
+        NAME_PREFIX="$2"
+        shift 2
+        ;;
       --name)
         [ "$#" -ge 2 ] || fail "--name requires text"
         requested_name="$2"
         name_set=1
+        shift 2
+        ;;
+      --workspace-name)
+        [ "$#" -ge 2 ] || fail "--workspace-name requires text"
+        workspace_name_override="$2"
+        shift 2
+        ;;
+      --command)
+        [ "$#" -ge 2 ] || fail "--command requires text"
+        command_to_run="$2"
         shift 2
         ;;
       -h|--help)
@@ -2726,6 +2788,13 @@ cmd_worktree_create() {
   branch_name="worktree/$final_name"
   start_point="$current_ref"
 
+  local workspace_name
+  if [ -n "$workspace_name_override" ]; then
+    workspace_name="$workspace_name_override"
+  else
+    workspace_name="${NAME_PREFIX}${repo_slug}-${final_name}"
+  fi
+
   if worktree_registered_at_path "$repo_root" "$worktree_path"; then
     worktree_exists=1
   elif [ -e "$worktree_path" ]; then
@@ -2748,15 +2817,76 @@ cmd_worktree_create() {
       if [ -n "$upstream_ref" ]; then
         git -C "$worktree_path" branch --set-upstream-to="$upstream_ref" "$branch_name" >/dev/null 2>&1 || true
       fi
-      printf '%s\t%s\t%s\t%s\n' "$C4J_ACTION_CREATE_WORKTREE" "$final_name" "$worktree_path" "$branch_name"
+      printf '%s\t%s\t%s\t%s\n' "$C4J_ACTION_CREATE_WORKTREE" "$final_name" "$worktree_path" "$branch_name" >&2
     else
-      printf 'would-create-worktree\t%s\t%s\t%s\n' "$final_name" "$worktree_path" "$branch_name"
+      printf 'would-create-worktree\t%s\t%s\t%s\ttarget_type=worktree\ttarget=%s\twould_change=true\treason=create\n' "$final_name" "$worktree_path" "$branch_name" "$worktree_path"
     fi
   else
     if [ "$mode" = "apply" ]; then
-      printf '%s\t%s\t%s\n' "$C4J_ACTION_REUSE_WORKTREE" "$final_name" "$worktree_path"
+      printf '%s\t%s\t%s\n' "$C4J_ACTION_REUSE_WORKTREE" "$final_name" "$worktree_path" >&2
     else
-      printf 'would-reuse-worktree\t%s\t%s\n' "$final_name" "$worktree_path"
+      printf 'would-reuse-worktree\t%s\t%s\ttarget_type=worktree\ttarget=%s\twould_change=false\treason=reuse\n' "$final_name" "$worktree_path" "$worktree_path"
+    fi
+  fi
+
+  if [ "$cmux_enabled" -eq 0 ]; then
+    if [ "$mode" = "dry-run" ]; then
+      printf 'would-skip-cmux\tworkspace\t%s\tfalse\treason=disabled\n' "$workspace_name"
+    else
+      printf 'skip cmux-disabled\t%s\n' "$workspace_name" >&2
+    fi
+  else
+    local inventory_file inventory_loaded=0 workspace_ref="" workspace_cwd="" path_row path_title path_ref
+    inventory_file="$(mktemp)"
+    # shellcheck disable=SC2064
+    trap "rm -f '$inventory_file'" RETURN
+    if load_cmux_inventory "$cmux_bin" "$inventory_file"; then
+      inventory_loaded=1
+      workspace_ref="$(workspace_ref_for_title "$inventory_file" "$workspace_name" 2>/dev/null || true)"
+      workspace_cwd="$(workspace_cwd_for_title "$inventory_file" "$workspace_name" 2>/dev/null || true)"
+    fi
+
+    if [ "$inventory_loaded" -eq 1 ]; then
+      if [ -n "$workspace_ref" ] && [ "$workspace_cwd" = "$worktree_path" ]; then
+        if [ "$mode" = "dry-run" ]; then
+          printf 'would-select-workspace\tworkspace\t%s\tfalse\treason=title-match\tref=%s\n' "$workspace_name" "$workspace_ref"
+        elif "$cmux_bin" select-workspace --workspace "$workspace_ref" >/dev/null 2>&1; then
+          printf 'select-workspace\t%s\t%s\n' "$workspace_name" "$workspace_ref" >&2
+        else
+          printf 'warning: failed to select cmux workspace: %s\n' "$workspace_name" >&2
+        fi
+      else
+        if [ -n "$workspace_ref" ] && [ "$workspace_cwd" != "$worktree_path" ]; then
+          printf 'warning: cmux workspace name points elsewhere: %s -> %s\n' "$workspace_name" "$workspace_cwd" >&2
+        fi
+        path_row="$(workspace_row_for_cwd "$inventory_file" "$worktree_path" 2>/dev/null || true)"
+        if [ -n "$path_row" ]; then
+          IFS=$'\t' read -r path_title _path_cwd path_ref <<< "$path_row"
+          if [ "$mode" = "dry-run" ]; then
+            printf 'would-select-workspace\tworkspace\t%s\tfalse\treason=path-match\tref=%s\n' "$path_title" "$path_ref"
+          elif "$cmux_bin" select-workspace --workspace "$path_ref" >/dev/null 2>&1; then
+            printf 'select-workspace\t%s\t%s\n' "$path_title" "$path_ref" >&2
+          else
+            printf 'warning: failed to select cmux workspace: %s\n' "$path_title" >&2
+          fi
+        elif [ -n "$workspace_ref" ]; then
+          if [ "$mode" = "dry-run" ]; then
+            printf 'would-skip-workspace\tworkspace\t%s\tfalse\treason=name-conflict\tcwd=%s\n' "$workspace_name" "$workspace_cwd"
+          else
+            printf 'warning: skipped cmux workspace create because name exists elsewhere: %s\n' "$workspace_name" >&2
+          fi
+        elif [ "$mode" = "dry-run" ]; then
+          printf 'would-create-workspace\tworkspace\t%s\ttrue\treason=missing\tcwd=%s\n' "$workspace_name" "$worktree_path"
+        elif "$cmux_bin" new-workspace --name "$workspace_name" --cwd "$worktree_path" --focus true >/dev/null 2>&1; then
+          printf 'create-workspace\t%s\t%s\n' "$workspace_name" "$worktree_path" >&2
+        else
+          printf 'warning: failed to create cmux workspace: %s\n' "$workspace_name" >&2
+        fi
+      fi
+    elif [ "$mode" = "dry-run" ]; then
+      printf 'would-skip-cmux\tworkspace\t%s\tfalse\treason=unavailable\n' "$workspace_name"
+    else
+      printf 'warning: cmux unavailable; skipped workspace integration: %s\n' "$workspace_name" >&2
     fi
   fi
 
@@ -2768,10 +2898,27 @@ cmd_worktree_create() {
     if [ "$name_set" -eq 1 ]; then
       hint_args+=(--name "$requested_name")
     fi
+    if [ "$cmux_enabled" -eq 0 ]; then
+      hint_args+=(--no-cmux)
+    fi
+    if [ -n "$workspace_name_override" ]; then
+      hint_args+=(--workspace-name "$workspace_name_override")
+    fi
+    if [ -n "$command_to_run" ]; then
+      printf 'would-run-command\tcommand\t%s\tfalse\treason=dry-run\n' "$command_to_run"
+      hint_args+=(--command "$command_to_run")
+    fi
     if [ "${#hint_args[@]}" -gt 0 ]; then
       print_apply_hint worktree "${hint_args[@]}"
     else
       print_apply_hint worktree
+    fi
+  else
+    printf '%s\n' "$worktree_path"
+    if [ -n "$command_to_run" ]; then
+      local command_status=0
+      (cd "$worktree_path" && bash -lc "$command_to_run") >&2 || command_status=$?
+      return "$command_status"
     fi
   fi
 }
@@ -2796,7 +2943,7 @@ cmd_worktree() {
       --to|--destination)
         index=$((index + 2))
         ;;
-      --name)
+      --name|--cmux|--name-prefix|--workspace-name|--command)
         seen_name=1
         index=$((index + 2))
         ;;

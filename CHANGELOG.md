@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.14.0 - 2026-06-28
+
+### Changed
+
+- Made `c4j wt` create or select a cmux workspace for the target worktree by default while preserving shell-wrapper cd behavior.
+- Changed normal `c4j wt` stdout to the final worktree path only; action rows, warnings, and `--command` output now go to stderr.
+- Added `c4j wt --no-cmux`, `--workspace-name`, `--command`, and cmux best-effort warning behavior.
+- Added focused fake-cmux worktree coverage and release dry-run support for the `0.14.0` minor release gate.
+
 ## v0.13.19 - 2026-06-25
 
 ### Changed

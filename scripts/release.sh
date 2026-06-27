@@ -8,9 +8,9 @@ NOTES_FILE=""
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/release.sh [--dry-run] [--prepare-only] [--notes-file PATH] <0.13.x>
+Usage: scripts/release.sh [--dry-run] [--prepare-only] [--notes-file PATH] <version>
 
-Runs the canonical c4j patch release flow:
+Runs the canonical c4j release flow:
   1. update version references
   2. run local checks
   3. commit and push main
@@ -50,6 +50,16 @@ next_patch_version() {
   patch="${version##*.}"
   [[ "$patch" =~ ^[0-9]+$ ]] || fail "invalid current version: $version"
   printf '%s.%s\n' "$prefix" "$((patch + 1))"
+}
+
+next_minor_version() {
+  local version="$1"
+  local major minor patch
+  IFS=. read -r major minor patch <<< "$version"
+  [[ "$major" =~ ^[0-9]+$ ]] || fail "invalid current version: $version"
+  [[ "$minor" =~ ^[0-9]+$ ]] || fail "invalid current version: $version"
+  [[ "$patch" =~ ^[0-9]+$ ]] || fail "invalid current version: $version"
+  printf '%s.%s.0\n' "$major" "$((minor + 1))"
 }
 
 ensure_clean_tree() {
@@ -233,13 +243,16 @@ while [ "$#" -gt 0 ]; do
 done
 
 [ "${VERSION_ARG:-}" != "" ] || fail "release version required"
-[[ "$VERSION_ARG" =~ ^0\.13\.[0-9]+$ ]] || fail "release version must look like 0.13.x"
+[[ "$VERSION_ARG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "release version must look like x.y.z"
 
 cd "$ROOT"
 
 current_version="$(tr -d '[:space:]' < "$ROOT/VERSION")"
 expected_version="$(next_patch_version "$current_version")"
-[ "$VERSION_ARG" = "$expected_version" ] || fail "expected next patch version $expected_version, got $VERSION_ARG"
+expected_minor_version="$(next_minor_version "$current_version")"
+if [ "$VERSION_ARG" != "$expected_version" ] && [ "$VERSION_ARG" != "$expected_minor_version" ]; then
+  fail "expected next patch version $expected_version or next minor version $expected_minor_version, got $VERSION_ARG"
+fi
 
 tag="v$VERSION_ARG"
 

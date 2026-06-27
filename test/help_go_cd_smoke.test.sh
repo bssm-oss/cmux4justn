@@ -31,6 +31,11 @@ assert_contains "$output" "Change directory"
 output="$($CLI help wt list)"
 assert_contains "$output" "c4j wt list"
 
+output="$($CLI help wt)"
+assert_contains "$output" "--no-cmux"
+assert_contains "$output" "--workspace-name"
+assert_contains "$output" "--command"
+
 output="$($CLI help repair)"
 assert_contains "$output" "c4j repair"
 assert_contains "$output" "two-way reconciliation"

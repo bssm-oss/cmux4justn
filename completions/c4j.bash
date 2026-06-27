@@ -149,7 +149,7 @@ _c4j_complete() {
             _c4j__complete_words "$cur" --dry-run --apply --repo --target -h --help
             ;;
           *)
-            _c4j__complete_words "$cur" "${C4J_CONTRACT_WORKTREE_SUBCOMMANDS[@]}" --dry-run --apply --repo --name -h --help
+            _c4j__complete_words "$cur" "${C4J_CONTRACT_WORKTREE_SUBCOMMANDS[@]}" --dry-run --apply --repo --name --no-cmux --cmux --name-prefix --workspace-name --command -h --help
             ;;
         esac
         ;;
@@ -279,14 +279,14 @@ _c4j_complete() {
           ;;
         *)
           case "$prev" in
-            --name)
+            --name|--workspace-name|--name-prefix|--command)
               COMPREPLY=()
               ;;
-            --repo)
+            --repo|--cmux)
               _c4j__complete_dirs "$cur"
               ;;
             *)
-          _c4j__complete_words "$cur" "${C4J_CONTRACT_WORKTREE_SUBCOMMANDS[@]}" --dry-run --apply --repo --name
+          _c4j__complete_words "$cur" "${C4J_CONTRACT_WORKTREE_SUBCOMMANDS[@]}" --dry-run --apply --repo --name --no-cmux --cmux --name-prefix --workspace-name --command
             ;;
         esac
       ;;

@@ -61,6 +61,16 @@ COMP_CWORD=3
 _c4j_complete
 assert_contains "${COMPREPLY[*]}" "remove"
 
+COMP_WORDS=(c4j wt --workspace-)
+COMP_CWORD=2
+_c4j_complete
+assert_contains "${COMPREPLY[*]}" "--workspace-name"
+
+COMP_WORDS=(c4j wt --no-)
+COMP_CWORD=2
+_c4j_complete
+assert_contains "${COMPREPLY[*]}" "--no-cmux"
+
 COMP_WORDS=(c4j config unset cmux-)
 COMP_CWORD=3
 _c4j_complete

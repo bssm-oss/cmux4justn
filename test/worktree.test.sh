@@ -19,10 +19,16 @@ cd "$WORKTREE_REPO"
 
 output="$($CLI worktree --dry-run --name api)"
 assert_contains "$output" "would-create-worktree	api	$WORKTREE_ROOT_RESOLVED/api	worktree/api"
+assert_contains "$output" "target_type=worktree"
+assert_contains "$output" "would_change=true"
 [ ! -e "$WORKTREE_ROOT_RESOLVED" ] || fail "worktree dry-run should not create worktree base directory"
 
-output="$($CLI worktree --apply --name api)"
-assert_contains "$output" "$C4J_ACTION_CREATE_WORKTREE	api	$WORKTREE_ROOT_RESOLVED/api	worktree/api"
+stdout="$TMPDIR/wt.stdout"
+stderr="$TMPDIR/wt.stderr"
+"$CLI" worktree --apply --name api >"$stdout" 2>"$stderr"
+[ "$(cat "$stdout")" = "$WORKTREE_ROOT_RESOLVED/api" ] || fail "worktree apply should print only final path to stdout"
+assert_contains "$(cat "$stderr")" "$C4J_ACTION_CREATE_WORKTREE	api	$WORKTREE_ROOT_RESOLVED/api	worktree/api"
+assert_contains "$(cat "$stderr")" "warning: cmux unavailable"
 [ -d "$WORKTREE_ROOT_RESOLVED/api" ] || fail "worktree apply should create worktree"
 
 output="$($CLI wt list)"

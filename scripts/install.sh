@@ -188,10 +188,12 @@ TARGET_CLI="$BIN_DIR/c4j"
 TARGET_CLI_ESCAPED="$(printf '%q' "$TARGET_CLI")"
 WRAPPER_FUNCTION="c4j() {
   local c4j_output c4j_status c4j_target_path
-  c4j_output=\"\$($TARGET_CLI_ESCAPED \"\$@\" 2>&1)\"
+  c4j_output=\"\$($TARGET_CLI_ESCAPED \"\$@\")\"
   c4j_status=\$?
   if [ \"\$c4j_status\" -ne 0 ]; then
-    printf '%s\n' \"\$c4j_output\"
+    if [ -n \"\$c4j_output\" ]; then
+      printf '%s\n' \"\$c4j_output\"
+    fi
     return \"\$c4j_status\"
   fi
   case \"\${1:-}\" in
@@ -215,8 +217,9 @@ WRAPPER_FUNCTION="c4j() {
       fi
       ;;
     worktree|wt|pane|make-pane)
+      # c4j wt path-only stdout contract
       printf '%s\n' \"\$c4j_output\"
-      c4j_target_path=\$(printf '%s\n' \"\$c4j_output\" | awk -F '\\t' '(\$1 == \"$C4J_ACTION_CREATE_WORKTREE\" || \$1 == \"$C4J_ACTION_REUSE_WORKTREE\") { print \$3; exit } \$1 == \"$C4J_ACTION_MOVE_WORKTREE\" { print \$4; exit }')
+      c4j_target_path=\$(printf '%s\n' \"\$c4j_output\" | awk -F '\\t' 'NR == 1 && \$0 ~ /^\\// { print \$0; exit } (\$1 == \"$C4J_ACTION_CREATE_WORKTREE\" || \$1 == \"$C4J_ACTION_REUSE_WORKTREE\") { print \$3; exit } \$1 == \"$C4J_ACTION_MOVE_WORKTREE\" { print \$4; exit }')
       if [ -n \"\$c4j_target_path\" ] && [ -d \"\$c4j_target_path\" ]; then
         builtin cd -- \"\$c4j_target_path\"
       fi
@@ -324,7 +327,8 @@ completion_present=0
 if grep -F "$MARKER_START" "$SHELL_RC" >/dev/null 2>&1 &&
   grep -F "$C4J_ACTION_CD_PROJECT" "$SHELL_RC" >/dev/null 2>&1 &&
   grep -F "$C4J_ACTION_GO_PROJECT" "$SHELL_RC" >/dev/null 2>&1 &&
-  grep -F "$C4J_ACTION_MOVE_WORKTREE" "$SHELL_RC" >/dev/null 2>&1; then
+  grep -F "$C4J_ACTION_MOVE_WORKTREE" "$SHELL_RC" >/dev/null 2>&1 &&
+  grep -F "c4j wt path-only stdout contract" "$SHELL_RC" >/dev/null 2>&1; then
   wrapper_present=1
 fi
 if grep -F "$COMPLETION_MARKER_START" "$SHELL_RC" >/dev/null 2>&1; then
