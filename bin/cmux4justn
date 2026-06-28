@@ -2978,19 +2978,39 @@ cmd_worktree() {
 
   case "$reserved" in
     list|ls)
-      cmd_worktree_list "${dispatch_args[@]}"
+      if [ "${#dispatch_args[@]}" -gt 0 ]; then
+        cmd_worktree_list "${dispatch_args[@]}"
+      else
+        cmd_worktree_list
+      fi
       ;;
     prune)
-      cmd_worktree_prune "${dispatch_args[@]}"
+      if [ "${#dispatch_args[@]}" -gt 0 ]; then
+        cmd_worktree_prune "${dispatch_args[@]}"
+      else
+        cmd_worktree_prune
+      fi
       ;;
     move)
-      cmd_worktree_move "${dispatch_args[@]}"
+      if [ "${#dispatch_args[@]}" -gt 0 ]; then
+        cmd_worktree_move "${dispatch_args[@]}"
+      else
+        cmd_worktree_move
+      fi
       ;;
     delete|remove|rm)
-      cmd_worktree_delete "${dispatch_args[@]}"
+      if [ "${#dispatch_args[@]}" -gt 0 ]; then
+        cmd_worktree_delete "${dispatch_args[@]}"
+      else
+        cmd_worktree_delete
+      fi
       ;;
     update|refresh|up)
-      cmd_worktree_update "${dispatch_args[@]}"
+      if [ "${#dispatch_args[@]}" -gt 0 ]; then
+        cmd_worktree_update "${dispatch_args[@]}"
+      else
+        cmd_worktree_update
+      fi
       ;;
     "")
       cmd_worktree_create "$@"
