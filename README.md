@@ -109,7 +109,7 @@ c4j cd .
 c4j cd --dry-run codeagora
 ```
 
-### `c4j worktree [--dry-run|--apply] [--repo <path>] [--name <name>] [--no-cmux] [--workspace-name <name>] [--command <command>]`
+### `c4j worktree [--dry-run|--apply] [--repo <path>] [--name <name>] [--no-cmux] [--cmux <path>] [--name-prefix <prefix>] [--workspace-name <name>] [--command <command>]`
 
 Creates a git worktree for the current repo under `~/Workspaces/worktrees`, mirroring the canonical repo path under `~/Workspaces/repos`.
 If you run it from inside the repo you want to branch off, it uses that current working directory as the source repo. If that directory is not a git repo but you are inside cmux, it falls back to the current cmux workspace's repo. Pass `--repo` to override the source path.
@@ -118,17 +118,19 @@ The first positional argument is the worktree name, so `c4j wt for-feature1` is 
 The default worktree name is `<repo>-<branch>`. If that name already exists, `c4j` appends `-2`, `-3`, and so on. Pass `--name` to override the worktree name directly.
 
 `worktree` defaults to `--apply`. `wt`, `pane`, and `make-pane` are aliases.
-By default, a successful `c4j wt ...` also creates or selects the cmux workspace for that worktree. The derived workspace name is `@active/<repo>-<worktree>`, and c4j also reuses an existing workspace whose cwd already points at the worktree. Pass `--workspace-name` to override the derived name, or `--no-cmux` to skip cmux integration.
+By default, a successful `c4j wt ...` also creates or selects the cmux workspace for that worktree. The derived workspace name is `@active/<repo>-<worktree>`, and c4j also reuses an existing workspace whose cwd already points at the worktree. Pass `--workspace-name` to override the derived name, `--name-prefix` to override the workspace prefix, `--cmux` to override the cmux binary, or `--no-cmux` to skip cmux integration.
 
 For normal execution, stdout is only the final absolute worktree path. Status rows, cmux warnings, and `--command` output go to stderr. This keeps the shell wrapper installed by `scripts/install.sh --rc` reliable: it reads the path and changes the current shell directory to the created or reused worktree.
 
-`--dry-run` is different: it makes no filesystem or cmux changes and prints TSV action rows to stdout. Worktree dry-run rows include action, target type, target, whether the command would change state, and a reason.
+`--dry-run` is different: it makes no filesystem or cmux changes and prints TSV action rows to stdout. Worktree creation dry-run rows include target type, target, would-change, and reason fields; subcommands such as move/delete/update keep their action-specific TSV row shapes.
 
 `--command` runs inside the worktree after setup. If the command fails, `c4j wt` returns the command's exit code while keeping stdout as the final worktree path.
 
-`c4j wt list` shows worktrees for the current cmux workspace when one is active, otherwise it shows every managed worktree it can discover.
-`c4j wt prune` prunes stale worktree metadata for the current workspace scope, and `c4j wt move` moves a named or current worktree to a new path.
-`c4j wt delete` and `c4j wt update` remain as compatibility aliases for the older naming.
+`c4j wt list` (`ls`) shows worktrees for the current cmux workspace when one is active, otherwise it shows every managed worktree it can discover. Pass `--repo` to scope the list and `--plain`/`--tsv` for raw rows.
+`c4j wt prune` prunes stale worktree metadata for the current workspace scope or `--repo` scope.
+`c4j wt move` moves a named worktree to a new name/path; when run from inside a managed non-main worktree, `c4j wt move <destination>` moves the current worktree. `--target`, `--to`, and `--destination` are the explicit forms.
+`c4j wt delete` (`remove`, `rm`) removes a named worktree; when run from inside a managed non-main worktree, the name can be omitted. Dirty or untracked worktrees still require `--force` or `--discard`.
+`c4j wt update` (`refresh`, `up`) fetches and fast-forwards a named or current worktree. Use `--target` for an explicit worktree target.
 
 ```bash
 c4j worktree
@@ -137,12 +139,53 @@ c4j wt for-feature1
 c4j wt for-feature1 --no-cmux
 c4j wt for-feature1 --workspace-name @active/cmux4justn-feature1
 c4j wt for-feature1 --command "git status --short"
-c4j wt list
-c4j wt prune
+c4j wt list --repo ~/Workspaces/repos/example --plain
+c4j wt prune --dry-run --repo ~/Workspaces/repos/example
 c4j wt move api api-v2
+c4j wt move --target api --destination api-v2
+c4j wt move api-v2        # from inside the current worktree
+c4j wt delete --discard   # from inside the current worktree
+c4j wt update --target api
 c4j worktree --repo ~/Workspaces/repos/bssm-oss/main/justn-hyeok/cmux4justn
 c4j worktree --name api
 ```
+
+#### Worktree usage recipes
+
+- Create a worktree for a new task branch and enter it:
+  ```bash
+  c4j wt feature-api
+  ```
+  On success, stdout is only the absolute worktree path, so the shell wrapper can `cd` there.
+
+- Preview changes before mutating anything:
+  ```bash
+  c4j wt --dry-run feature-api
+  c4j wt prune --dry-run --repo ~/Workspaces/repos/example
+  c4j wt delete --dry-run --target feature-api
+  ```
+
+- Clean up from inside the current worktree without repeating its name:
+  ```bash
+  c4j wt move feature-api-v2
+  c4j wt delete --discard
+  c4j wt update
+  ```
+  This shorthand only works inside a managed non-main worktree. Main checkouts are refused for delete, and dirty or untracked worktree deletion still requires `--force` or `--discard`.
+
+- Pin the target repo in scripts and automation:
+  ```bash
+  c4j wt list --repo ~/Workspaces/repos/example --plain
+  c4j wt move --repo ~/Workspaces/repos/example --target feature-api --destination feature-api-v2
+  c4j wt delete --repo ~/Workspaces/repos/example --target feature-api-v2 --discard
+  ```
+
+- Customize cmux workspace behavior:
+  ```bash
+  c4j wt feature-api --workspace-name @active/example-feature-api
+  c4j wt feature-api --name-prefix @review/
+  c4j wt feature-api --no-cmux
+  ```
 
 ### `c4j list [--plain]`
 

@@ -19,6 +19,13 @@ cd "$COMPLETION_ROOT"
 # shellcheck source=/dev/null
 source "$ROOT/completions/c4j.bash"
 
+complete_words() {
+  COMP_WORDS=("$@")
+  COMP_CWORD=$((${#COMP_WORDS[@]} - 1))
+  _c4j_complete
+  printf '%s\n' "${COMPREPLY[*]}"
+}
+
 COMP_WORDS=(c4j setup --active-dir "")
 COMP_CWORD=3
 _c4j_complete
@@ -70,6 +77,47 @@ COMP_WORDS=(c4j wt --no-)
 COMP_CWORD=2
 _c4j_complete
 assert_contains "${COMPREPLY[*]}" "--no-cmux"
+
+output="$(complete_words c4j wt --dry-run delete --)"
+assert_contains "$output" "--force"
+assert_contains "$output" "--discard"
+assert_contains "$output" "--target"
+assert_contains "$output" "--repo"
+
+output="$(complete_words c4j wt --repo "$COMPLETION_ROOT/alpha" move --)"
+assert_contains "$output" "--target"
+assert_contains "$output" "--to"
+assert_contains "$output" "--destination"
+assert_contains "$output" "--repo"
+
+output="$(complete_words c4j wt --apply update --)"
+assert_contains "$output" "--target"
+assert_contains "$output" "--repo"
+
+output="$(complete_words c4j wt --no-cmux delete --)"
+assert_contains "$output" "--force"
+assert_contains "$output" "--discard"
+
+output="$(complete_words c4j wt --name delete --)"
+assert_not_contains "$output" "--force"
+assert_not_contains "$output" "--discard"
+assert_contains "$output" "--workspace-name"
+
+output="$(complete_words c4j wt --name foo move --)"
+assert_not_contains "$output" "--to"
+assert_not_contains "$output" "--destination"
+
+output="$(complete_words c4j wt --repo delete --)"
+assert_not_contains "$output" "--force"
+assert_contains "$output" "--workspace-name"
+
+output="$(complete_words c4j wt --target move --)"
+assert_not_contains "$output" "--to"
+assert_contains "$output" "--workspace-name"
+
+output="$(complete_words c4j wt feature delete --)"
+assert_not_contains "$output" "--force"
+assert_contains "$output" "--workspace-name"
 
 COMP_WORDS=(c4j config unset cmux-)
 COMP_CWORD=3

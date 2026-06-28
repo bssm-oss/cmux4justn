@@ -94,6 +94,44 @@ _c4j__complete_help_topics() {
   local cur="${1:-}"
   _c4j__complete_words "$cur" "${C4J_CONTRACT_HELP_TOPICS[@]}"
 }
+_c4j__worktree_subcommand() {
+  local index=2
+  local word
+
+  while [ "$index" -lt "$COMP_CWORD" ]; do
+    word="${COMP_WORDS[$index]:-}"
+    case "$word" in
+      --dry-run|--apply|-h|--help|--no-cmux)
+        index=$((index + 1))
+        ;;
+      --repo|--target|--to|--destination)
+        index=$((index + 2))
+        ;;
+      --name|--cmux|--name-prefix|--workspace-name|--command)
+        return 0
+        ;;
+      --)
+        index=$((index + 1))
+        if [ "$index" -lt "$COMP_CWORD" ]; then
+          printf '%s\n' "${COMP_WORDS[$index]}"
+        fi
+        return 0
+        ;;
+      --*)
+        index=$((index + 1))
+        ;;
+      list|ls|prune|move|delete|remove|rm|update|refresh|up)
+        printf '%s\n' "$word"
+        return 0
+        ;;
+      *)
+        return 0
+        ;;
+    esac
+  done
+
+  return 0
+}
 
 _c4j_complete() {
   local cur prev command subcommand field
@@ -102,6 +140,11 @@ _c4j_complete() {
   prev="${COMP_WORDS[COMP_CWORD-1]:-}"
   command="${COMP_WORDS[1]:-}"
   subcommand="${COMP_WORDS[2]:-}"
+  case "$command" in
+    worktree|wt|pane|make-pane)
+      subcommand="$(_c4j__worktree_subcommand)"
+      ;;
+  esac
   field="${COMP_WORDS[3]:-}"
 
   case "$prev" in
@@ -143,7 +186,7 @@ _c4j_complete() {
             _c4j__complete_words "$cur" --dry-run --apply --repo --target --to --destination -h --help
             ;;
           delete|remove|rm)
-            _c4j__complete_words "$cur" --dry-run --apply --repo --target -h --help
+            _c4j__complete_words "$cur" --dry-run --apply --force --discard --repo --target -h --help
             ;;
           update|refresh|up)
             _c4j__complete_words "$cur" --dry-run --apply --repo --target -h --help

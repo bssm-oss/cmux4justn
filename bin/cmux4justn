@@ -319,32 +319,48 @@ USAGE
 c4j wt [name]
 
 Make a git worktree for the current repo.
+Aliases: c4j worktree, c4j wt, c4j pane, c4j make-pane.
 If you are inside cmux, c4j can infer the repo from the workspace.
 
 Try:
   c4j wt
   c4j wt feature-api
   c4j wt --dry-run
+  c4j wt --repo ~/Workspaces/repos/example --name api
   c4j wt feature-api --no-cmux
   c4j wt feature-api --workspace-name @active/cmux4justn-api
   c4j wt feature-api --command "git status --short"
   c4j wt list
 
 Options:
+  --repo PATH             Source repo path.
+  --name NAME             Override the worktree directory and branch suffix.
   --no-cmux              Skip cmux workspace integration.
+  --cmux PATH             Override the cmux binary.
+  --name-prefix PREFIX   Override the cmux workspace prefix.
   --workspace-name NAME  Override the derived cmux workspace name.
   --command COMMAND      Run a command inside the worktree after setup.
   --dry-run              Print TSV action rows without changes.
+  --apply                Apply changes (default).
+
+Subcommands:
+  list, ls
+  prune
+  move
+  delete, remove, rm
+  update, refresh, up
 
 More:
   c4j help wt list
   c4j help wt move
   c4j help wt delete
+  c4j help wt update
 USAGE
       ;;
     "worktree list"|"wt list"|worktree-list|wt-list)
       cat <<'USAGE'
 c4j wt list
+Aliases: c4j wt list, c4j wt ls.
 
 Show managed worktrees.
 Inside cmux, this usually shows worktrees for the current workspace repo.
@@ -352,6 +368,12 @@ Inside cmux, this usually shows worktrees for the current workspace repo.
 Try:
   c4j wt list
   c4j wt list --plain
+  c4j wt list --repo ~/Workspaces/repos/example
+
+Options:
+  --repo PATH   Restrict list to one repo.
+  --plain       Print raw TSV rows.
+  --tsv         Alias for --plain.
 USAGE
       ;;
     "worktree prune"|"wt prune"|worktree-prune|wt-prune)
@@ -363,17 +385,35 @@ Clean stale git worktree metadata.
 Try:
   c4j wt prune
   c4j wt prune --dry-run
+  c4j wt prune --repo ~/Workspaces/repos/example
+
+Options:
+  --repo PATH   Restrict prune to one repo.
+  --dry-run     Preview without pruning.
+  --apply       Apply changes (default).
 USAGE
       ;;
     "worktree move"|"wt move"|worktree-move|wt-move)
       cat <<'USAGE'
-c4j wt move <worktree> <new-name-or-path>
+c4j wt move [worktree] <new-name-or-path>
 
 Move a managed worktree.
+If you are inside the worktree, you can omit the worktree name.
 
 Try:
   c4j wt move api api-v2
+  c4j wt move api --to api-v2
+  c4j wt move --target api --destination api-v2
   c4j wt move --dry-run api api-v2
+  c4j wt move api-v2
+
+Options:
+  --repo PATH          Restrict lookup to one repo.
+  --target WORKTREE   Worktree name, branch, or path to move.
+  --to DEST           Destination name or path.
+  --destination DEST  Alias for --to.
+  --dry-run           Preview without moving.
+  --apply             Apply changes (default).
 USAGE
       ;;
     "worktree delete"|"wt delete"|worktree-delete|wt-delete)
@@ -381,13 +421,25 @@ USAGE
 c4j wt delete [worktree]
 
 Remove a managed worktree.
+Aliases: c4j wt delete, c4j wt remove, c4j wt rm.
 If you are inside the worktree, you can omit the name.
 Dirty or untracked worktrees require --force or --discard.
 
 Try:
   c4j wt delete api
+  c4j wt delete --target api
   c4j wt delete --force api
+  c4j wt delete --discard api
   c4j wt delete --dry-run api
+  c4j wt delete
+
+Options:
+  --repo PATH        Restrict lookup to one repo.
+  --target WORKTREE Worktree name, branch, or path to delete.
+  --force           Remove dirty or untracked worktrees.
+  --discard         Alias for --force.
+  --dry-run         Preview without deleting.
+  --apply           Apply changes (default).
 USAGE
       ;;
     "worktree update"|"wt update"|worktree-update|wt-update)
@@ -395,11 +447,19 @@ USAGE
 c4j wt update [worktree]
 
 Fetch and fast-forward a managed worktree.
+Aliases: c4j wt update, c4j wt refresh, c4j wt up.
 If you are inside the worktree, you can omit the name.
 
 Try:
   c4j wt update api
+  c4j wt update --target api
   c4j wt update --dry-run api
+
+Options:
+  --repo PATH        Restrict lookup to one repo.
+  --target WORKTREE Worktree name, branch, or path to update.
+  --dry-run         Preview without updating.
+  --apply           Apply changes (default).
 USAGE
       ;;
     version|--version|-v)
@@ -2286,6 +2346,9 @@ cmd_worktree_move() {
   if [ -z "$source" ]; then
     source="$(worktree_current_path_from_pwd 2>/dev/null || true)"
     [ -n "$source" ] || fail "worktree move requires a target or must be run inside a worktree"
+    if [ -z "$repo_path" ]; then
+      scope_repo_root="$(canonical_git_root "$source" 2>/dev/null || true)"
+    fi
   fi
 
   local rows_file matches_file match_count repo_root repo_name worktree_name worktree_path branch destination_path current_parent
@@ -2498,6 +2561,9 @@ cmd_worktree_delete() {
   if [ -z "$target" ]; then
     target="$(worktree_current_path_from_pwd 2>/dev/null || true)"
     [ -n "$target" ] || fail "worktree delete requires a target or must be run inside a worktree"
+    if [ -z "$repo_path" ]; then
+      scope_repo_root="$(canonical_git_root "$target" 2>/dev/null || true)"
+    fi
   fi
 
   local rows_file matches_file match_count repo_root repo_name worktree_name worktree_path branch worktree_root
