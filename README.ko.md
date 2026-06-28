@@ -22,7 +22,7 @@ cmux 사용자가 프로젝트 추가, active 목록 확인, workspace title 동
 ## 설치
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.14.1/install.sh | bash -s -- --rc
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.14.2/install.sh | bash -s -- --rc
 ```
 
 설치 스크립트는 기본적으로 다음 작업을 합니다.
@@ -259,7 +259,7 @@ c4j anchor --name justn-is-always-around-here --cwd ~/Workspaces
 ```bash
 c4j update
 c4j update --dry-run
-c4j update --ref v0.14.1
+c4j update --ref v0.14.2
 c4j update --repo-url <url> --ref <ref> --allow-unsafe-source
 ```
 
@@ -351,13 +351,13 @@ CLI 버전을 출력합니다.
 
 ```bash
 # 특정 릴리즈를 설치합니다.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.14.1/install.sh | C4J_REF=v0.14.1 bash -s -- --rc
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.14.2/install.sh | C4J_REF=v0.14.2 bash -s -- --rc
 
 # bootstrap script에 고정된 릴리즈 대신 main에서 설치합니다.
 curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/main/install.sh | C4J_REF=main bash -s -- --rc --allow-unsafe-source
 
 # source 다운로드 위치를 바꿉니다.
-curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.14.1/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash -s -- --rc
+curl -fsSL https://raw.githubusercontent.com/bssm-oss/cmux4justn/v0.14.2/install.sh | C4J_INSTALL_DIR="$HOME/src/c4j" bash -s -- --rc
 
 # 설치 작업을 미리 확인합니다.
 scripts/install.sh --dry-run

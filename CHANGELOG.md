@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.14.2 - 2026-06-29
+
+### Fixed
+
+- Fixed `c4j wt move` and `c4j wt delete` target inference when run inside the current managed worktree, including cmux/PWD mismatch safety.
+- Fixed worktree completion so subcommands are recognized after safe prefix options without treating create-context operands as destructive subcommands.
+
+### Changed
+
+- Expanded worktree help, README usage recipes, and Korean documentation for aliases, explicit targeting, current-worktree shorthand, dry-run safety, and cmux workspace options.
+
 ## v0.14.1 - 2026-06-29
 
 ### Changed
