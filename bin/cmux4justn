@@ -2079,6 +2079,9 @@ cmd_worktree_list() {
         mode="plain"
         shift
         ;;
+      --dry-run|--apply)
+        shift
+        ;;
       -h|--help)
         command_help "worktree list"
         exit 0
@@ -2968,46 +2971,26 @@ cmd_worktree() {
     esac
   done
 
-  local -a tail_args=()
+  local -a dispatch_args=()
   if [ "$reserved_index" -ge 0 ]; then
-    tail_args=("${args[@]:$((reserved_index + 1))}")
+    dispatch_args=("${args[@]:0:$reserved_index}" "${args[@]:$((reserved_index + 1))}")
   fi
 
   case "$reserved" in
     list|ls)
-      if [ "${#tail_args[@]}" -gt 0 ]; then
-        cmd_worktree_list "${tail_args[@]}"
-      else
-        cmd_worktree_list
-      fi
+      cmd_worktree_list "${dispatch_args[@]}"
       ;;
     prune)
-      if [ "${#tail_args[@]}" -gt 0 ]; then
-        cmd_worktree_prune "${tail_args[@]}"
-      else
-        cmd_worktree_prune
-      fi
+      cmd_worktree_prune "${dispatch_args[@]}"
       ;;
     move)
-      if [ "${#tail_args[@]}" -gt 0 ]; then
-        cmd_worktree_move "${tail_args[@]}"
-      else
-        cmd_worktree_move
-      fi
+      cmd_worktree_move "${dispatch_args[@]}"
       ;;
     delete|remove|rm)
-      if [ "${#tail_args[@]}" -gt 0 ]; then
-        cmd_worktree_delete "${tail_args[@]}"
-      else
-        cmd_worktree_delete
-      fi
+      cmd_worktree_delete "${dispatch_args[@]}"
       ;;
     update|refresh|up)
-      if [ "${#tail_args[@]}" -gt 0 ]; then
-        cmd_worktree_update "${tail_args[@]}"
-      else
-        cmd_worktree_update
-      fi
+      cmd_worktree_update "${dispatch_args[@]}"
       ;;
     "")
       cmd_worktree_create "$@"
