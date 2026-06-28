@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.14.1 - 2026-06-29
+
+### Changed
+
+- Prepared v0.14.1 release.
+
 ## v0.14.0 - 2026-06-28
 
 ### Changed
